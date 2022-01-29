@@ -8,7 +8,7 @@ defmodule OddJob.Supervisor do
 
   @impl true
   def init(name) do
-    children = workers(name) ++ [{OddJob.Queue, name}]
+    children = workers(name) ++ [{OddJob.Queue, %{id: queue_id(name), supervisor: id(name)}}]
     Supervisor.init(children, strategy: :one_for_one)
   end
 
@@ -21,12 +21,16 @@ defmodule OddJob.Supervisor do
   end
 
   defp id(name), do: :"odd_job_#{name}_sup"
+  defp queue_id(name), do: :"odd_job_#{name}_queue"
+  defp worker_id(name), do: :"odd_job_#{name}_worker"
 
   defp workers(name) do
     pool_size = Application.get_env(:odd_job, :pool_size, 5)
 
     for num <- 1..pool_size do
-      {OddJob.Worker, "#{name}_#{num}"}
+      id = worker_id("#{name}_#{num}")
+      queue = queue_id(name)
+      {OddJob.Worker, %{id: id, queue: queue}}
     end
   end
 end

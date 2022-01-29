@@ -24,3 +24,6 @@ odd_job-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Code testing scratch file
+test.exs

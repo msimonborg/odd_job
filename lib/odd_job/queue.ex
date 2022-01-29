@@ -1,38 +1,84 @@
 defmodule OddJob.Queue do
   use GenServer
+  alias OddJob.Job
 
-  defstruct [:name, workers: [], jobs: []]
+  defstruct [:id, :supervisor, workers: [], assigned: [], jobs: []]
 
   @type t :: %__MODULE__{
-          name: atom,
+          id: atom,
+          supervisor: atom,
           workers: [pid],
-          jobs: list
+          assigned: [pid],
+          jobs: [job]
         }
 
-  def start_link(name) do
-    GenServer.start_link(__MODULE__, name, name: id(name))
+  @type job :: Job.t()
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: opts.id)
+  end
+
+  def child_spec(opts) do
+    %{id: opts.id, start: {OddJob.Queue, :start_link, [opts]}}
   end
 
   @impl true
-  def init(name) do
-    GenServer.cast(self(), {:monitor_workers, name})
-    {:ok, %__MODULE__{name: name}}
-  end
-
-  def child_spec(name) do
-    %{id: id(name), start: {OddJob.Queue, :start_link, [name]}}
+  def init(opts) do
+    GenServer.cast(self(), :monitor_workers)
+    state = struct(__MODULE__, opts)
+    {:ok, state}
   end
 
   @impl true
-  def handle_cast({:monitor_workers, name}, state) do
-    workers = monitor_workers(name)
+  def handle_cast(:monitor_workers, %{supervisor: supervisor} = state) do
+    workers = monitor_workers(supervisor)
     {:noreply, %{state | workers: workers}}
   end
 
   @impl true
-  def handle_cast({:monitor, pid}, %{workers: workers} = state) do
+  def handle_cast({:monitor, pid}, %{workers: workers, jobs: []} = state) do
     Process.monitor(pid)
     {:noreply, %{state | workers: workers ++ [pid]}}
+  end
+
+  @impl true
+  def handle_cast({:monitor, pid}, %{workers: workers, jobs: jobs, assigned: assigned} = state) do
+    Process.monitor(pid)
+    workers = workers ++ [pid]
+    assigned = assigned ++ [pid]
+    [job | rest] = jobs
+    GenServer.cast(pid, {:do_perform, job})
+    {:noreply, %{state | workers: workers, assigned: assigned, jobs: rest}}
+  end
+
+  @impl true
+  def handle_call({:complete, _job}, {pid, _}, %{assigned: assigned, jobs: []} = state) do
+    {:reply, :ok, %{state | assigned: assigned -- [pid]}}
+  end
+
+  @impl true
+  def handle_call({:complete, _job}, {worker, _}, %{jobs: jobs} = state) do
+    [new_job | rest] = jobs
+    GenServer.cast(worker, {:do_perform, new_job})
+    {:reply, :ok, %{state | jobs: rest}}
+  end
+
+  @impl true
+  def handle_call(
+        {:perform, fun},
+        {from, _},
+        %{jobs: jobs, assigned: assigned, workers: workers} = state
+      ) do
+    job = %Job{function: fun, owner: from}
+    available = workers -- assigned
+
+    if available == [] do
+      {:reply, :ok, %{state | jobs: jobs ++ [job]}}
+    else
+      [worker | _rest] = available
+      GenServer.cast(worker, {:do_perform, job})
+      {:reply, :ok, %{state | assigned: assigned ++ [worker]}}
+    end
   end
 
   @impl true
@@ -41,23 +87,27 @@ defmodule OddJob.Queue do
   end
 
   @impl true
-  def handle_info({:DOWN, ref, :process, pid, _reason}, %{name: name, workers: workers} = state) do
+  def handle_info(
+        {:DOWN, ref, :process, pid, _reason},
+        %{workers: workers, supervisor: supervisor, assigned: assigned} = state
+      ) do
     Process.demonitor(ref, [:flush])
     workers = workers -- [pid]
-    check_for_new_worker(name, workers)
-    {:noreply, %{state | workers: workers}}
+    assigned = assigned -- [pid]
+    check_for_new_worker(supervisor, workers)
+    {:noreply, %{state | workers: workers, assigned: assigned}}
   end
 
-  defp check_for_new_worker(name, workers) do
+  defp check_for_new_worker(supervisor, workers) do
     children =
-      for {_, pid, :worker, [OddJob.Worker]} <- Supervisor.which_children(supervisor(name)) do
+      for {_, pid, :worker, [OddJob.Worker]} <- Supervisor.which_children(supervisor) do
         pid
       end
 
     unmonitored = children -- workers
 
     if unmonitored == [] do
-      check_for_new_worker(name, workers)
+      check_for_new_worker(supervisor, workers)
     else
       for pid <- unmonitored do
         GenServer.cast(self(), {:monitor, pid})
@@ -65,12 +115,8 @@ defmodule OddJob.Queue do
     end
   end
 
-  defp id(name), do: :"odd_job_#{name}_queue"
-
-  defp supervisor(name), do: :"odd_job_#{name}_sup"
-
-  defp monitor_workers(name) do
-    for {_, pid, :worker, [OddJob.Worker]} <- Supervisor.which_children(supervisor(name)) do
+  defp monitor_workers(supervisor) do
+    for {_, pid, :worker, [OddJob.Worker]} <- Supervisor.which_children(supervisor) do
       Process.monitor(pid)
       pid
     end

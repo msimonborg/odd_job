@@ -14,7 +14,7 @@ defmodule OddJob.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :observer],
+      extra_applications: [:logger, observer: :optional],
       mod: {OddJob.Application, []}
     ]
   end
@@ -22,8 +22,8 @@ defmodule OddJob.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"}
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:ex_doc, "~> 0.24", only: :dev, runtime: false},
+      {:receiver, "~> 0.2.2", only: :test}
     ]
   end
 end

@@ -22,7 +22,13 @@ defmodule OddJob.Queue do
     %{id: opts.id, start: {OddJob.Queue, :start_link, [opts]}}
   end
 
+  @spec state(atom | pid | {atom, any} | {:via, atom, any}) :: t
+  def state(queue) do
+    GenServer.call(queue, :state)
+  end
+
   @impl true
+  @spec init(any) :: {:ok, t}
   def init(opts) do
     GenServer.cast(self(), :monitor_workers)
     state = struct(__MODULE__, opts)

@@ -4,4 +4,7 @@ import Config
 config :odd_job,
   supervise: [:email, :task]
 
+# Configure pool size, defaults to 5
 # pool_size: 10
+
+if Mix.env() == :test, do: import_config("test.exs")

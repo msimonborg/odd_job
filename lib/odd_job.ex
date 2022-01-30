@@ -102,10 +102,8 @@ defmodule OddJob do
       100.0
   """
   @spec await(job) :: any
-  def await(_job) do
-    receive do
-      %OddJob.Job{results: results} -> results
-    end
+  def await(job, timeout \\ 5000) when is_struct(job, OddJob.Job) do
+    OddJob.Async.await(job, timeout)
   end
 
   @doc """

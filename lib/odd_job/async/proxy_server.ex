@@ -17,7 +17,7 @@ defmodule OddJob.Async.ProxyServer do
   @impl true
   def handle_call({:run, pool, job}, _from, _state) do
     queue_id(pool)
-    |> GenServer.call({:perform_async, job})
+    |> GenServer.call({:perform, job})
 
     {:reply, job, job}
   end

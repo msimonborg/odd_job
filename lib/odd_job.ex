@@ -43,8 +43,12 @@ defmodule OddJob do
 
   """
 
-  @type job :: OddJob.Job.t()
-  @type queue :: OddJob.Queue.t()
+  alias OddJob.Job
+  alias OddJob.Queue
+  alias OddJob.Async
+
+  @type job :: Job.t()
+  @type queue :: Queue.t()
   @type child_spec :: %{
           id: atom,
           start: {OddJob.Supervisor, :start_link, [atom]},
@@ -69,7 +73,8 @@ defmodule OddJob do
   """
   @spec perform(atom, fun) :: :ok
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
-    GenServer.call(queue_id(pool), {:perform, fun})
+    job = %Job{function: fun, owner: self()}
+    GenServer.call(queue_id(pool), {:perform, job})
   end
 
   @doc """
@@ -87,7 +92,7 @@ defmodule OddJob do
   """
   @spec async_perform(atom, fun) :: job
   def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
-    OddJob.Async.perform(pool, fun)
+    Async.perform(pool, fun)
   end
 
   @doc """
@@ -102,8 +107,8 @@ defmodule OddJob do
       100.0
   """
   @spec await(job) :: any
-  def await(job, timeout \\ 5000) when is_struct(job, OddJob.Job) do
-    OddJob.Async.await(job, timeout)
+  def await(job, timeout \\ 5000) when is_struct(job, Job) do
+    Async.await(job, timeout)
   end
 
   @doc """
@@ -120,7 +125,7 @@ defmodule OddJob do
   @spec queue(atom) :: {pid, queue}
   def queue(pool) when is_atom(pool) do
     queue_id = queue_id(pool)
-    state = queue_id |> OddJob.Queue.state()
+    state = queue_id |> Queue.state()
     pid = queue_id |> GenServer.whereis()
     {pid, state}
   end

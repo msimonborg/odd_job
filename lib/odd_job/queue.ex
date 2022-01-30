@@ -76,16 +76,9 @@ defmodule OddJob.Queue do
   end
 
   @impl true
-  def handle_call({:perform, fun}, {from, _}, state) do
-    job = %Job{function: fun, owner: from}
+  def handle_call({:perform, job}, _from, state) do
     state = do_perform(job, state)
     {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:perform_async, job}, _from, state) do
-    state = do_perform(job, state)
-    {:reply, job, state}
   end
 
   @impl true

@@ -9,10 +9,63 @@ defmodule OddJobTest do
     :ok
   end
 
+  describe "async_perform/2" do
+    test "returns a Job struct with appropriate fields" do
+      %OddJob.Job{
+        async: async,
+        owner: owner,
+        proxy: proxy,
+        function: function,
+        ref: ref,
+        results: nil
+      } = async_perform(:work, fn -> 1 + 1 end)
+
+      assert is_function(function)
+      assert async == true
+      assert owner == self()
+      assert proxy != self()
+      assert is_pid(proxy)
+      assert is_reference(ref)
+    end
+
+    test "does not block the caller" do
+      t1 = Time.utc_now()
+
+      job =
+        async_perform(:work, fn ->
+          Process.sleep(10)
+          :finished
+        end)
+
+      t2 = Time.utc_now()
+      assert Time.diff(t2, t1, :millisecond) < 10
+      assert await(job) == :finished
+    end
+  end
+
+  describe "await/2" do
+    test "awaits on and returns the results of an async job" do
+      job = async_perform(:work, fn -> 1 + 1 end)
+      assert await(job) == 2
+    end
+
+    test "accepts an optional timeout that will exit if the job takes too long" do
+      job = async_perform(:work, fn -> Process.sleep(10) end)
+      assert catch_exit(await(job, 5)) == :timeout
+      Process.sleep(5)
+    end
+
+    test "will timeout waiting for jobs that have already been awaited on" do
+      job = async_perform(:work, fn -> 1 + 1 end)
+      assert await(job, 5) == 2
+      assert catch_exit(await(job, 5)) == :timeout
+    end
+  end
+
   describe "perform/2" do
     test "can perform concurrent fire and forget jobs" do
       parent = self()
-      perform(:work, fn -> Process.send_after(parent, :hello, 10) end)
+      :ok = perform(:work, fn -> Process.send_after(parent, :hello, 10) end)
 
       result =
         receive do

@@ -1,2 +1,2 @@
-Application.ensure_started(:receiver)
+Application.ensure_all_started(:odd_job)
 ExUnit.start()

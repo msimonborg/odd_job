@@ -87,7 +87,7 @@ defmodule OddJob do
   """
   @spec perform_async(atom, fun) :: job
   def perform_async(pool, fun) when is_atom(pool) and is_function(fun) do
-    GenServer.call(queue_id(pool), {:perform_async, fun})
+    OddJob.Async.start_link(pool, fun)
   end
 
   @doc """

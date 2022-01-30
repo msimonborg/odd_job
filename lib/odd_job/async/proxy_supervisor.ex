@@ -1,4 +1,5 @@
 defmodule OddJob.Async.ProxySupervisor do
+  @moduledoc false
   use DynamicSupervisor
 
   @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}

@@ -9,7 +9,8 @@ defmodule OddJob.Supervisor do
 
   @impl true
   def init(name) do
-    children = workers(name) ++ [{OddJob.Queue, %{id: queue_id(name), supervisor: id(name)}}]
+    queue_opts = %{id: queue_id(name), supervisor: id(name)}
+    children = workers(name) ++ [{OddJob.Queue, queue_opts}]
     Supervisor.init(children, strategy: :one_for_one)
   end
 

@@ -7,8 +7,8 @@ defmodule OddJob.Async do
   @supervisor OddJob.Async.ProxySupervisor
   @server OddJob.Async.ProxyServer
 
-  @spec start_link(atom, fun) :: job
-  def start_link(pool, fun) when is_atom(pool) and is_function(fun) do
+  @spec perform(atom, fun) :: job
+  def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @server)
     Process.link(pid)
     ref = Process.monitor(pid)

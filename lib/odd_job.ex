@@ -81,13 +81,13 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job = OddJob.perform_async(:work, fn -> :math.exp(100) end)
+      iex> job = OddJob.async_perform(:work, fn -> :math.exp(100) end)
       iex> OddJob.await(job)
       2.6881171418161356e43
   """
-  @spec perform_async(atom, fun) :: job
-  def perform_async(pool, fun) when is_atom(pool) and is_function(fun) do
-    OddJob.Async.start_link(pool, fun)
+  @spec async_perform(atom, fun) :: job
+  def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
+    OddJob.Async.perform(pool, fun)
   end
 
   @doc """
@@ -97,7 +97,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.perform_async(:work, fn -> :math.log(2.6881171418161356e43) end)
+      iex> OddJob.async_perform(:work, fn -> :math.log(2.6881171418161356e43) end)
       ...> |> OddJob.await()
       100.0
   """

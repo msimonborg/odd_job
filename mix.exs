@@ -7,7 +7,12 @@ defmodule OddJob.MixProject do
       version: "0.1.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package(),
+      source_url: "https://github.com/msimonborg/odd_job",
+      homepage_url: "https://github.com/msimonborg/odd_job",
+      name: "OddJob"
     ]
   end
 
@@ -24,6 +29,17 @@ defmodule OddJob.MixProject do
     [
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
       {:receiver, "~> 0.2.2", only: :test}
+    ]
+  end
+
+  defp description do
+    "Job pools for Elixir OTP applications, written in Elixir."
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{"Github" => "https://github.com/msimonborg/odd_job"}
     ]
   end
 end

@@ -4,13 +4,12 @@ Job pools for Elixir OTP applications, written in Elixir.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `odd_job` to your list of dependencies in `mix.exs`:
+The package can be installed by adding `odd_job` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:odd_job, "~> 0.1.0"}
+    {:odd_job, "~> 0.1"}
   ]
 end
 ```
@@ -61,7 +60,7 @@ OddJob.perform(:email, fn -> send_confirmation_email() end)
 OddJob.perform(:task, fn -> update_external_application() end)
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/odd_job>.
+## Documentation
+
+For more usage, reference the [documentation](https://hexdocs.pm/odd_job).
 

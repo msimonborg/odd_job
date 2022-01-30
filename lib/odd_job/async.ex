@@ -17,11 +17,27 @@ defmodule OddJob.Async do
   end
 
   @spec await(job, timeout) :: any
-  def await(%Job{ref: ref} = _job, timeout) do
+  def await(%Job{ref: ref} = job, timeout) do
     receive do
-      %Job{ref: ^ref, results: results} -> results
+      %Job{ref: ^ref, results: results} ->
+        Process.demonitor(ref, [:flush])
+        results
+
+      {:DOWN, ^ref, _, pid, reason} ->
+        exit({reason(reason, pid), {__MODULE__, :await, [job, timeout]}})
     after
-      timeout -> exit(:timeout)
+      timeout ->
+        Process.demonitor(ref, [:flush])
+        exit({:timeout, {__MODULE__, :await, [job, timeout]}})
     end
   end
+
+  # The following private functions were taken from the Task module in Elixir's standard library,
+  # in the hope that exit behavior mimics that of the Task module.
+
+  defp reason(:noconnection, proc), do: {:nodedown, monitor_node(proc)}
+  defp reason(reason, _), do: reason
+
+  defp monitor_node(pid) when is_pid(pid), do: node(pid)
+  defp monitor_node({_, node}), do: node
 end

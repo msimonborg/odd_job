@@ -6,6 +6,8 @@ defmodule OddJobTest do
 
   setup do
     start_stash(fn -> [] end)
+    # sleep to make sure all jobs from previous test are finished
+    on_exit(fn -> Process.sleep(25) end)
     :ok
   end
 
@@ -51,14 +53,26 @@ defmodule OddJobTest do
 
     test "accepts an optional timeout that will exit if the job takes too long" do
       job = async_perform(:work, fn -> Process.sleep(10) end)
-      assert catch_exit(await(job, 5)) == :timeout
+      message = catch_exit(await(job, 5))
+      assert {fun, owner, proxy, ref, timeout} = match_timeout_message(message)
+      assert fun == job.function
+      assert owner == job.owner
+      assert proxy == job.proxy
+      assert ref == job.ref
+      assert timeout == 5
       Process.sleep(5)
     end
 
     test "will timeout waiting for jobs that have already been awaited on" do
       job = async_perform(:work, fn -> 1 + 1 end)
       assert await(job, 5) == 2
-      assert catch_exit(await(job, 5)) == :timeout
+      message = catch_exit(await(job, 5))
+      assert {fun, owner, proxy, ref, timeout} = match_timeout_message(message)
+      assert fun == job.function
+      assert owner == job.owner
+      assert proxy == job.proxy
+      assert ref == job.ref
+      assert timeout == 5
     end
   end
 
@@ -138,5 +152,23 @@ defmodule OddJobTest do
         Process.sleep(10)
       end)
     end
+  end
+
+  defp match_timeout_message(msg) do
+    {:timeout,
+     {OddJob.Async, :await,
+      [
+        %OddJob.Job{
+          async: true,
+          function: fun,
+          owner: owner,
+          proxy: proxy,
+          ref: ref,
+          results: nil
+        },
+        timeout
+      ]}} = msg
+
+    {fun, owner, proxy, ref, timeout}
   end
 end

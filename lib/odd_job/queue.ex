@@ -62,14 +62,12 @@ defmodule OddJob.Queue do
   end
 
   @impl true
-  def handle_call({:complete, job}, {pid, _}, %Q{assigned: assigned, jobs: []} = state) do
-    send_results_if_awaited(job)
+  def handle_call(:complete, {pid, _}, %Q{assigned: assigned, jobs: []} = state) do
     {:reply, :ok, %Q{state | assigned: assigned -- [pid]}}
   end
 
   @impl true
-  def handle_call({:complete, job}, {worker, _}, %Q{jobs: jobs} = state) do
-    send_results_if_awaited(job)
+  def handle_call(:complete, {worker, _}, %Q{jobs: jobs} = state) do
     [new_job | rest] = jobs
     GenServer.cast(worker, {:do_perform, new_job})
     {:reply, :ok, %Q{state | jobs: rest}}
@@ -84,12 +82,6 @@ defmodule OddJob.Queue do
   @impl true
   def handle_call(:state, _from, state) do
     {:reply, state, state}
-  end
-
-  defp send_results_if_awaited(%Job{async: false}), do: :noop
-
-  defp send_results_if_awaited(%Job{async: true, owner: pid} = job) do
-    Process.send(pid, job, [])
   end
 
   defp do_perform(job, %Q{jobs: jobs, assigned: assigned, workers: workers} = state) do

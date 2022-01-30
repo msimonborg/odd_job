@@ -43,6 +43,7 @@ defmodule OddJob do
 
   """
 
+  @type job :: OddJob.Job.t()
   @type queue :: OddJob.Queue.t()
   @type child_spec :: %{
           id: atom,
@@ -67,8 +68,44 @@ defmodule OddJob do
       :hello
   """
   @spec perform(atom, fun) :: :ok
-  def perform(pool, job) when is_atom(pool) and is_function(job) do
-    GenServer.call(queue_id(pool), {:perform, job})
+  def perform(pool, fun) when is_atom(pool) and is_function(fun) do
+    GenServer.call(queue_id(pool), {:perform, fun})
+  end
+
+  @doc """
+  Performs an async job that can be awaited on for the result.
+
+  Functions like `Task.async/1` and `Task.await/2`.
+
+  # WIP
+
+  ## Examples
+
+      iex> job = OddJob.perform_async(:work, fn -> :math.exp(100) end)
+      iex> OddJob.await(job)
+      2.6881171418161356e43
+  """
+  @spec perform_async(atom, fun) :: job
+  def perform_async(pool, fun) when is_atom(pool) and is_function(fun) do
+    GenServer.call(queue_id(pool), {:perform_async, fun})
+  end
+
+  @doc """
+  Awaits on an async job and returns the results.
+
+  # WIP
+
+  ## Examples
+
+      iex> OddJob.perform_async(:work, fn -> :math.log(2.6881171418161356e43) end)
+      ...> |> OddJob.await()
+      100.0
+  """
+  @spec await(job) :: any
+  def await(_job) do
+    receive do
+      %OddJob.Job{results: results} -> results
+    end
   end
 
   @doc """

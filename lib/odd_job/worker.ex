@@ -26,7 +26,7 @@ defmodule OddJob.Worker do
   @impl true
   def handle_cast({:do_perform, job}, %{queue: queue} = state) do
     results = job.function.()
-    GenServer.call(queue, {:complete, %{job | results: results, worker: self()}})
+    GenServer.call(queue, {:complete, %{job | results: results}})
     {:noreply, state}
   end
 end

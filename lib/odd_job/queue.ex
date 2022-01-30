@@ -1,6 +1,7 @@
 defmodule OddJob.Queue do
   use GenServer
   alias OddJob.Job
+  alias OddJob.Queue, as: Q
 
   defstruct [:id, :supervisor, workers: [], assigned: [], jobs: []]
 
@@ -39,55 +40,53 @@ defmodule OddJob.Queue do
   end
 
   @impl true
-  def handle_cast(:monitor_workers, %{supervisor: supervisor} = state) do
+  def handle_cast(:monitor_workers, %Q{supervisor: supervisor} = state) do
     workers = monitor_workers(supervisor)
-    {:noreply, %{state | workers: workers}}
+    {:noreply, %Q{state | workers: workers}}
   end
 
   @impl true
-  def handle_cast({:monitor, pid}, %{workers: workers, jobs: []} = state) do
+  def handle_cast({:monitor, pid}, %Q{workers: workers, jobs: []} = state) do
     Process.monitor(pid)
-    {:noreply, %{state | workers: workers ++ [pid]}}
+    {:noreply, %Q{state | workers: workers ++ [pid]}}
   end
 
   @impl true
-  def handle_cast({:monitor, pid}, %{workers: workers, jobs: jobs, assigned: assigned} = state) do
+  def handle_cast({:monitor, pid}, %Q{workers: workers, jobs: jobs, assigned: assigned} = state) do
     Process.monitor(pid)
     workers = workers ++ [pid]
     assigned = assigned ++ [pid]
     [job | rest] = jobs
     GenServer.cast(pid, {:do_perform, job})
-    {:noreply, %{state | workers: workers, assigned: assigned, jobs: rest}}
+    {:noreply, %Q{state | workers: workers, assigned: assigned, jobs: rest}}
   end
 
   @impl true
-  def handle_call({:complete, _job}, {pid, _}, %{assigned: assigned, jobs: []} = state) do
-    {:reply, :ok, %{state | assigned: assigned -- [pid]}}
+  def handle_call({:complete, job}, {pid, _}, %Q{assigned: assigned, jobs: []} = state) do
+    send_results_if_awaited(job)
+    {:reply, :ok, %Q{state | assigned: assigned -- [pid]}}
   end
 
   @impl true
-  def handle_call({:complete, _job}, {worker, _}, %{jobs: jobs} = state) do
+  def handle_call({:complete, job}, {worker, _}, %Q{jobs: jobs} = state) do
+    send_results_if_awaited(job)
     [new_job | rest] = jobs
     GenServer.cast(worker, {:do_perform, new_job})
-    {:reply, :ok, %{state | jobs: rest}}
+    {:reply, :ok, %Q{state | jobs: rest}}
   end
 
   @impl true
-  def handle_call(
-        {:perform, fun},
-        {from, _},
-        %{jobs: jobs, assigned: assigned, workers: workers} = state
-      ) do
+  def handle_call({:perform, fun}, {from, _}, state) do
     job = %Job{function: fun, owner: from}
-    available = workers -- assigned
+    state = do_perform(job, state)
+    {:reply, :ok, state}
+  end
 
-    if available == [] do
-      {:reply, :ok, %{state | jobs: jobs ++ [job]}}
-    else
-      [worker | _rest] = available
-      GenServer.cast(worker, {:do_perform, job})
-      {:reply, :ok, %{state | assigned: assigned ++ [worker]}}
-    end
+  @impl true
+  def handle_call({:perform_async, fun}, {from, _}, state) do
+    job = %Job{function: fun, owner: from, async: true}
+    state = do_perform(job, state)
+    {:reply, job, state}
   end
 
   @impl true
@@ -95,16 +94,34 @@ defmodule OddJob.Queue do
     {:reply, state, state}
   end
 
+  defp send_results_if_awaited(%Job{async: false}), do: :noop
+
+  defp send_results_if_awaited(%Job{async: true, owner: pid} = job) do
+    Process.send(pid, job, [])
+  end
+
+  defp do_perform(job, %Q{jobs: jobs, assigned: assigned, workers: workers} = state) do
+    available = workers -- assigned
+
+    if available == [] do
+      %Q{state | jobs: jobs ++ [job]}
+    else
+      [worker | _rest] = available
+      GenServer.cast(worker, {:do_perform, job})
+      %Q{state | assigned: assigned ++ [worker]}
+    end
+  end
+
   @impl true
   def handle_info(
         {:DOWN, ref, :process, pid, _reason},
-        %{workers: workers, supervisor: supervisor, assigned: assigned} = state
+        %Q{workers: workers, supervisor: supervisor, assigned: assigned} = state
       ) do
     Process.demonitor(ref, [:flush])
     workers = workers -- [pid]
     assigned = assigned -- [pid]
     check_for_new_worker(supervisor, workers)
-    {:noreply, %{state | workers: workers, assigned: assigned}}
+    {:noreply, %Q{state | workers: workers, assigned: assigned}}
   end
 
   defp check_for_new_worker(supervisor, workers) do

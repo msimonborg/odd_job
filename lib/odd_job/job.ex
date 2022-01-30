@@ -1,9 +1,8 @@
 defmodule OddJob.Job do
-  defstruct [:ref, :worker, :owner, :function, :results]
+  defstruct [:owner, :function, :results, async: false]
 
   @type t :: %__MODULE__{
-          ref: reference,
-          worker: pid,
+          async: boolean,
           owner: pid,
           function: function,
           results: term

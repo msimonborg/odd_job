@@ -7,22 +7,20 @@ defmodule OddJob.Application do
 
   @impl true
   def start(_type, _args) do
-    # Add job pools directly to your application supervision tree:
-    #
-    #   children = [
-    #     {OddJob, :email},
-    #     {OddJob, :task}
-    #   ]
-    #
-    #   opts = [strategy: :one_for_one, name: MyApp.Supervisor]
-    #   Supervisor.start_link(children, opts)
+    children =
+      [
+        # Add job pools directly to your application supervision tree:
+        # {OddJob, :email},
+        # {OddJob, :task}
+        OddJob.Async.ProxySupervisor
+      ] ++ pools()
 
     if Mix.env() == :dev, do: :observer.start()
     opts = [strategy: :one_for_one, name: OddJob.Supervisor]
-    Supervisor.start_link(children(), opts)
+    Supervisor.start_link(children, opts)
   end
 
-  defp children() do
+  defp pools() do
     pools = Application.get_env(:odd_job, :supervise, [])
     for pool <- pools, do: {OddJob, pool}
   end

@@ -9,10 +9,10 @@ defmodule OddJobTest do
     :ok
   end
 
-  describe "perform" do
+  describe "perform/2" do
     test "can perform concurrent fire and forget jobs" do
       parent = self()
-      perform(:test, fn -> Process.send_after(parent, :hello, 10) end)
+      perform(:work, fn -> Process.send_after(parent, :hello, 10) end)
 
       result =
         receive do
@@ -44,7 +44,7 @@ defmodule OddJobTest do
 
     test "can instantly start, assign, and monitor a new worker when one fails" do
       perform_expensive_jobs(1..10)
-      perform(:test, fn -> Process.exit(self(), :kill) end)
+      perform(:work, fn -> Process.exit(self(), :kill) end)
       perform_expensive_jobs(11..20)
       Process.sleep(5)
       assert get_stash() |> Enum.sort() == Enum.to_list(1..5)
@@ -58,9 +58,29 @@ defmodule OddJobTest do
     end
   end
 
+  describe "workers/1" do
+    test "returns a list of worker pids" do
+      workers = workers(:work)
+      assert length(workers) == 5
+
+      for worker <- workers do
+        assert is_pid(worker)
+      end
+    end
+  end
+
+  describe "supervisor/1" do
+    test "returns the pool supervisor's pid" do
+      pid = supervisor(:work)
+      supervisor_id = supervisor_id(:work)
+      assert is_pid(pid)
+      assert pid == GenServer.whereis(supervisor_id)
+    end
+  end
+
   defp perform_expensive_jobs(range) do
     for i <- range do
-      perform(:test, fn ->
+      perform(:work, fn ->
         update_stash(fn x -> x ++ [i] end)
         Process.sleep(10)
       end)

@@ -1,4 +1,5 @@
 defmodule OddJob.Worker do
+  @moduledoc false
   use GenServer
 
   defstruct [:id, :queue]

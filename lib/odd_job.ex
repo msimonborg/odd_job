@@ -50,6 +50,7 @@ defmodule OddJob do
           type: :supervisor
         }
 
+  @doc false
   @spec child_spec(atom) :: child_spec
   defdelegate child_spec(name), to: OddJob.Supervisor
 
@@ -59,7 +60,7 @@ defmodule OddJob do
   ## Examples
 
       iex> parent = self()
-      iex> :ok = OddJob.perform(:test, fn -> send(parent, :hello) end)
+      iex> :ok = OddJob.perform(:work, fn -> send(parent, :hello) end)
       iex> receive do
       ...>   msg -> msg
       ...> end
@@ -71,20 +72,22 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the queue of the job `pool`.
+  Returns the pid and state of the job `pool`'s queue.
 
   ## Examples
 
-      iex> queue = OddJob.queue(:test)
-      iex> is_struct(queue, OddJob.Queue)
+      iex> {pid, %OddJob.Queue{id: id}} = OddJob.queue(:work)
+      iex> is_pid(pid)
       true
-      iex> queue.id
-      :odd_job_test_queue
+      iex> id
+      :odd_job_work_queue
   """
-  @spec queue(atom) :: queue
+  @spec queue(atom) :: {pid, queue}
   def queue(pool) when is_atom(pool) do
-    queue_id(pool)
-    |> OddJob.Queue.state()
+    queue_id = queue_id(pool)
+    state = queue_id |> OddJob.Queue.state()
+    pid = queue_id |> GenServer.whereis()
+    {pid, state}
   end
 
   @doc """
@@ -92,9 +95,56 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.queue_id(:test)
-      :odd_job_test_queue
+      iex> OddJob.queue_id(:work)
+      :odd_job_work_queue
   """
   @spec queue_id(atom) :: atom
-  def queue_id(pool) when is_atom(pool), do: :"odd_job_#{pool}_queue"
+  defdelegate queue_id(pool), to: OddJob.Supervisor
+
+  @doc """
+  Returns the pid of the job `pool`'s supervisor.
+
+  There is no guarantee that the process will still be alive after the results are returned,
+  as it could exit or be killed or restarted at any time. Use `supervisor_id/1` to obtain
+  the persistent ID of the supervisor.
+
+  ## Examples
+
+      OddJob.supervisor(:work)
+      #=> #PID<0.239.0>
+  """
+  @spec supervisor(atom) :: pid
+  def supervisor(pool) when is_atom(pool) do
+    pool
+    |> supervisor_id()
+    |> GenServer.whereis()
+  end
+
+  @doc """
+  Returns the ID of the job `pool`'s supervisor.
+
+  ## Examples
+
+      iex> OddJob.supervisor_id(:work)
+      :odd_job_work_sup
+  """
+  @spec supervisor_id(atom) :: atom
+  defdelegate supervisor_id(pool), to: OddJob.Supervisor, as: :id
+
+  @doc """
+  Returns a list of `pid`s for the specified worker pool.
+
+  There is no guarantee that the processes will still be alive after the results are returned,
+  as they could exit or be killed at any time.
+
+  ## Examples
+
+      OddJob.workers(:work)
+      #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
+  """
+  @spec workers(atom) :: [pid]
+  def workers(pool) when is_atom(pool) do
+    {_, %{workers: workers}} = queue(pool)
+    workers
+  end
 end

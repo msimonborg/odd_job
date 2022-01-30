@@ -1,4 +1,5 @@
 defmodule OddJob.Supervisor do
+  @moduledoc false
   use Supervisor
 
   @spec start_link(any) :: :ignore | {:error, any} | {:ok, pid}
@@ -20,9 +21,14 @@ defmodule OddJob.Supervisor do
     }
   end
 
-  defp id(name), do: :"odd_job_#{name}_sup"
-  defp queue_id(name), do: :"odd_job_#{name}_queue"
-  defp worker_id(name), do: :"odd_job_#{name}_worker"
+  @spec id(atom | binary) :: atom
+  def id(name) when is_atom(name) or is_binary(name), do: :"odd_job_#{name}_sup"
+
+  @spec queue_id(atom | binary) :: atom
+  def queue_id(name) when is_atom(name) or is_binary(name), do: :"odd_job_#{name}_queue"
+
+  @spec worker_id(atom | binary) :: atom
+  def worker_id(name) when is_atom(name) or is_binary(name), do: :"odd_job_#{name}_worker"
 
   defp workers(name) do
     pool_size = Application.get_env(:odd_job, :pool_size, 5)

@@ -14,14 +14,17 @@ defmodule OddJob.Queue do
 
   @type job :: Job.t()
 
+  @doc false
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: opts.id)
   end
 
+  @doc false
   def child_spec(opts) do
     %{id: opts.id, start: {OddJob.Queue, :start_link, [opts]}}
   end
 
+  @doc false
   @spec state(atom | pid | {atom, any} | {:via, atom, any}) :: t
   def state(queue) do
     GenServer.call(queue, :state)

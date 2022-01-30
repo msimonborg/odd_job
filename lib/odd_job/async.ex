@@ -19,7 +19,7 @@ defmodule OddJob.Async do
   @spec await(job, timeout) :: any
   def await(%Job{ref: ref} = job, timeout) do
     receive do
-      %Job{ref: ^ref, results: results} ->
+      {^ref, results} ->
         Process.demonitor(ref, [:flush])
         results
 

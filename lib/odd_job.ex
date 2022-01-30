@@ -82,8 +82,6 @@ defmodule OddJob do
 
   Functions like `Task.async/1` and `Task.await/2`.
 
-  # WIP
-
   ## Examples
 
       iex> job = OddJob.async_perform(:work, fn -> :math.exp(100) end)
@@ -98,15 +96,13 @@ defmodule OddJob do
   @doc """
   Awaits on an async job and returns the results.
 
-  # WIP
-
   ## Examples
 
       iex> OddJob.async_perform(:work, fn -> :math.log(2.6881171418161356e43) end)
       ...> |> OddJob.await()
       100.0
   """
-  @spec await(job) :: any
+  @spec await(job, timeout) :: any
   def await(job, timeout \\ 5000) when is_struct(job, Job) do
     Async.await(job, timeout)
   end

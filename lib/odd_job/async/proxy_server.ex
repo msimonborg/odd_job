@@ -42,7 +42,7 @@ defmodule OddJob.Async.ProxyServer do
   def handle_call({:complete, job}, {from, _}, %{worker_ref: ref} = state) do
     Process.unlink(from)
     Process.demonitor(ref, [:flush])
-    Process.send(job.owner, job, [])
+    Process.send(job.owner, {job.ref, job.results}, [])
     {:stop, :normal, :ok, state}
   end
 

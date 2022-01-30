@@ -2,7 +2,6 @@ defmodule OddJob.Async.ProxyServer do
   @moduledoc false
   use GenServer
   import OddJob, only: [queue_id: 1]
-  alias OddJob.Job
 
   @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}
   def start_link([]) do
@@ -16,9 +15,10 @@ defmodule OddJob.Async.ProxyServer do
   end
 
   @impl true
-  def handle_call({:run, ref, pool, fun}, {from, _}, state) do
-    job = %Job{ref: ref, function: fun, owner: from, async: true}
-    GenServer.call(queue_id(pool), {:perform_async, job})
-    {:reply, job, state}
+  def handle_call({:run, pool, job}, _from, _state) do
+    queue_id(pool)
+    |> GenServer.call({:perform_async, job})
+
+    {:reply, job, job}
   end
 end

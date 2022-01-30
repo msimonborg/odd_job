@@ -10,9 +10,10 @@ defmodule OddJob.Async do
   @spec start_link(atom, fun) :: job
   def start_link(pool, fun) when is_atom(pool) and is_function(fun) do
     {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @server)
-    true = Process.link(pid)
+    Process.link(pid)
     ref = Process.monitor(pid)
-    GenServer.call(pid, {:run, ref, pool, fun})
+    job = %Job{ref: ref, function: fun, owner: self(), proxy: pid, async: true}
+    GenServer.call(pid, {:run, pool, job})
   end
 
   @spec await(job, timeout) :: any

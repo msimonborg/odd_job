@@ -1,10 +1,24 @@
 defmodule OddJob.Queue do
+  @moduledoc """
+  The job queue that manages the assignments given to the pool workers.
+  """
   use GenServer
   alias OddJob.Job
   alias OddJob.Queue, as: Q
 
+  @spec __struct__ :: OddJob.Queue.t()
   defstruct [:id, :supervisor, workers: [], assigned: [], jobs: []]
 
+  @typedoc """
+  The `OddJob.Queue` struct holds the state of the job queue.
+
+    * `:id` is an atom representing the registered name of the queue process
+    * `:supervisor` is an atom representing the registered name of the queue's supervisor process
+    * `:workers` is a list of the active worker `pid`s, whether they are busy working or not
+    * `:assigned` is a list of the worker `pid`s that are currently assigned to a job
+    * `:jobs` is a list of `OddJob.Job` structs representing the jobs that are queued to be performed
+      when workers are available
+  """
   @type t :: %__MODULE__{
           id: atom,
           supervisor: atom,

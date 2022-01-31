@@ -54,7 +54,8 @@ defmodule OddJobTest do
     test "accepts an optional timeout that will exit if the job takes too long" do
       job = async_perform(:work, fn -> Process.sleep(10) end)
       message = catch_exit(await(job, 5))
-      assert {fun, owner, proxy, ref, timeout} = match_timeout_message(message)
+      assert {reason, fun, owner, proxy, ref, timeout} = match_exit_message(message)
+      assert reason == :timeout
       assert fun == job.function
       assert owner == job.owner
       assert proxy == job.proxy
@@ -67,12 +68,25 @@ defmodule OddJobTest do
       job = async_perform(:work, fn -> 1 + 1 end)
       assert await(job, 5) == 2
       message = catch_exit(await(job, 5))
-      assert {fun, owner, proxy, ref, timeout} = match_timeout_message(message)
+      assert {reason, fun, owner, proxy, ref, timeout} = match_exit_message(message)
+      assert reason == :timeout
       assert fun == job.function
       assert owner == job.owner
       assert proxy == job.proxy
       assert ref == job.ref
       assert timeout == 5
+    end
+
+    test "when the job exits, the caller receives the same exit signal" do
+      job = async_perform(:work, fn -> exit(:normal) end)
+      message = catch_exit(await(job))
+      assert {reason, fun, owner, proxy, ref, timeout} = match_exit_message(message)
+      assert reason == :normal
+      assert fun == job.function
+      assert owner == job.owner
+      assert proxy == job.proxy
+      assert ref == job.ref
+      assert timeout == 5000
     end
   end
 
@@ -235,8 +249,8 @@ defmodule OddJobTest do
     end
   end
 
-  defp match_timeout_message(msg) do
-    {:timeout,
+  defp match_exit_message(msg) do
+    {reason,
      {OddJob.Async, :await,
       [
         %OddJob.Job{
@@ -250,6 +264,6 @@ defmodule OddJobTest do
         timeout
       ]}} = msg
 
-    {fun, owner, proxy, ref, timeout}
+    {reason, fun, owner, proxy, ref, timeout}
   end
 end

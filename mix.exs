@@ -10,6 +10,16 @@ defmodule OddJob.MixProject do
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test,
+        "coveralls.travis": :test,
+        "coveralls.safe_travis": :test,
+        "receiver.build": :test
+      ],
       description: description(),
       package: package(),
       source_url: "https://github.com/msimonborg/odd_job",
@@ -30,6 +40,8 @@ defmodule OddJob.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
+      {:excoveralls, ">= 0.0.0", only: :test},
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:receiver, "~> 0.2.2", only: :test}
     ]
   end

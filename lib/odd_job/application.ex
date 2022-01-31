@@ -14,7 +14,7 @@ defmodule OddJob.Application do
         # {OddJob, :task}
         OddJob.Async.ProxySupervisor,
         OddJob.Scheduler,
-        {OddJob, :default}
+        {OddJob, :job}
       ] ++ pools()
 
     # if Mix.env() == :dev, do: :observer.start()

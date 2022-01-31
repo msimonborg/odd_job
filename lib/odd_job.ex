@@ -62,7 +62,7 @@ defmodule OddJob do
   ## Examples
 
       iex> parent = self()
-      iex> :ok = OddJob.perform(:work, fn -> send(parent, :hello) end)
+      iex> :ok = OddJob.perform(:job, fn -> send(parent, :hello) end)
       iex> receive do
       ...>   msg -> msg
       ...> end
@@ -81,7 +81,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job = OddJob.async_perform(:work, fn -> :math.exp(100) end)
+      iex> job = OddJob.async_perform(:job, fn -> :math.exp(100) end)
       iex> OddJob.await(job)
       2.6881171418161356e43
   """
@@ -95,7 +95,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.async_perform(:work, fn -> :math.log(2.6881171418161356e43) end)
+      iex> OddJob.async_perform(:job, fn -> :math.log(2.6881171418161356e43) end)
       ...> |> OddJob.await()
       100.0
   """
@@ -122,8 +122,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job1 = OddJob.async_perform(:work, fn -> 2 ** 2 end)
-      iex> job2 = OddJob.async_perform(:work, fn -> 3 ** 2 end)
+      iex> job1 = OddJob.async_perform(:job, fn -> 2 ** 2 end)
+      iex> job2 = OddJob.async_perform(:job, fn -> 3 ** 2 end)
       iex> [job1, job2] |> OddJob.await_many()
       [4, 9]
   """
@@ -142,13 +142,13 @@ defmodule OddJob do
 
   ## Examples
 
-      timer_ref = OddJob.perform_after(5000, :work, fn -> deferred_job() end)
+      timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
       Process.read_timer(timer_ref)
       #=> 2836 # time remaining before job enters the queue
       Process.cancel_timer(timer_ref)
       #=> 1175 # job has been cancelled
 
-      timer_ref = OddJob.perform_after(5000, :work, fn -> deferred_job() end)
+      timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
       Process.sleep(6000)
       Process.cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
@@ -171,7 +171,7 @@ defmodule OddJob do
   ## Examples
 
       time = Time.utc_now() |> Time.add(600, :second)
-      OddJob.perform_at(time, :work, fn -> scheduled_job() end)
+      OddJob.perform_at(time, :job, fn -> scheduled_job() end)
   """
   @spec perform_at(Time.t() | DateTime.t(), atom, function) :: reference
   def perform_at(time, pool, fun)
@@ -185,11 +185,11 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> {pid, %OddJob.Queue{id: id}} = OddJob.queue(:work)
+      iex> {pid, %OddJob.Queue{id: id}} = OddJob.queue(:job)
       iex> is_pid(pid)
       true
       iex> id
-      :odd_job_work_queue
+      :odd_job_job_queue
   """
   @spec queue(atom) :: {pid, queue}
   def queue(pool) when is_atom(pool) do
@@ -204,8 +204,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.queue_id(:work)
-      :odd_job_work_queue
+      iex> OddJob.queue_id(:job)
+      :odd_job_job_queue
   """
   @spec queue_id(atom) :: atom
   defdelegate queue_id(pool), to: OddJob.Supervisor
@@ -219,7 +219,7 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.supervisor(:work)
+      OddJob.supervisor(:job)
       #=> #PID<0.239.0>
   """
   @spec supervisor(atom) :: pid
@@ -234,8 +234,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.supervisor_id(:work)
-      :odd_job_work_sup
+      iex> OddJob.supervisor_id(:job)
+      :odd_job_job_sup
   """
   @spec supervisor_id(atom) :: atom
   defdelegate supervisor_id(pool), to: OddJob.Supervisor, as: :id
@@ -248,7 +248,7 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.workers(:work)
+      OddJob.workers(:job)
       #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
   """
   @spec workers(atom) :: [pid]

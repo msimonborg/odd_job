@@ -109,9 +109,9 @@ defmodule OddJob do
   end
 
   @doc """
-  Adds a job to the queue of the job `pool` after the given `time` has elapsed.
+  Adds a job to the queue of the job `pool` after the given `timer` has elapsed.
 
-  `time` is an integer that indicates the number of milliseconds that should elapse before
+  `timer` is an integer that indicates the number of milliseconds that should elapse before
   the job enters the queue. The timed message is executed under a separate supervised process,
   so if the caller crashes the job will still be performed. A timer reference is returned,
   which can be read with `Process.read_timer/1` or canceled with `Process.cancel_timer/1`.
@@ -130,9 +130,30 @@ defmodule OddJob do
       #=> false # too much time has passed to cancel the job
   """
   @spec perform_after(integer, atom, function) :: reference
-  def perform_after(time, pool, fun)
-      when is_integer(time) and is_atom(pool) and is_function(fun) do
-    Scheduler.perform_after(time, pool, fun)
+  def perform_after(timer, pool, fun)
+      when is_integer(timer) and is_atom(pool) and is_function(fun) do
+    Scheduler.perform_after(timer, pool, fun)
+  end
+
+  @doc """
+  Adds a job to the queue of the job `pool` at the given `time`.
+
+  `time` can be a `Time` or a `DateTime` struct. If a `Time` struct is received, then
+  the job will be done the next time the clock strikes the given time. The timed message is executed
+  under a separate supervised process, so if the caller crashes the job will still be performed.
+  A timer reference is returned, which can be read with `Process.read_timer/1` or canceled with
+  `Process.cancel_timer/1`.
+
+  ## Examples
+
+      time = Time.utc_now() |> Time.add(600, :second)
+      OddJob.perform_at(time, :work, fn -> scheduled_job() end)
+  """
+  @spec perform_at(Time.t() | DateTime.t(), atom, function) :: reference
+  def perform_at(time, pool, fun)
+      when (is_struct(time, Time) or is_struct(time, DateTime)) and
+             is_atom(pool) and is_function(fun) do
+    Scheduler.perform_at(time, pool, fun)
   end
 
   @doc """

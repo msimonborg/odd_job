@@ -162,6 +162,50 @@ defmodule OddJobTest do
     end
   end
 
+  describe "perform_at/3" do
+    test "schedules a job at the specified time" do
+      caller = self()
+      t1 = Time.add(Time.utc_now(), 100, :millisecond)
+      timer_ref = perform_at(t1, :work, fn -> send(caller, :finished) end)
+      assert Process.read_timer(timer_ref) <= 100
+
+      results =
+        receive do
+          msg -> msg
+        end
+
+      t2 = Time.utc_now()
+      assert Process.read_timer(timer_ref) == false
+      assert Time.diff(t2, t1, :millisecond) <= 1
+      assert results == :finished
+    end
+
+    test "can receive a DateTime as a parameter" do
+      datetime = DateTime.add(DateTime.utc_now(), 1_000_000_000, :millisecond)
+      timer_ref = perform_at(datetime, :work, fn -> :future end)
+      timer = Process.read_timer(timer_ref)
+      assert timer <= 1_000_000_000
+      assert timer >= 999_999_990
+      Process.cancel_timer(timer_ref)
+    end
+
+    test "scheduled jobs can be canceled" do
+      caller = self()
+      time = Time.add(Time.utc_now(), 25, :millisecond)
+      timer_ref = perform_at(time, :work, fn -> send(caller, :delivered) end)
+      Process.cancel_timer(timer_ref)
+
+      result =
+        receive do
+          msg -> msg
+        after
+          50 -> :not_delivered
+        end
+
+      assert result == :not_delivered
+    end
+  end
+
   describe "workers/1" do
     test "returns a list of worker pids" do
       workers = workers(:work)

@@ -12,7 +12,8 @@ defmodule OddJob.Application do
         # Add job pools directly to your application supervision tree:
         # {OddJob, :email},
         # {OddJob, :task}
-        OddJob.Async.ProxySupervisor
+        OddJob.Async.ProxySupervisor,
+        OddJob.Scheduler
       ] ++ pools()
 
     if Mix.env() == :dev, do: :observer.start()

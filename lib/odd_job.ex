@@ -46,6 +46,7 @@ defmodule OddJob do
   alias OddJob.Job
   alias OddJob.Queue
   alias OddJob.Async
+  alias OddJob.Scheduler
 
   @type job :: Job.t()
   @type queue :: Queue.t()
@@ -71,7 +72,7 @@ defmodule OddJob do
       ...> end
       :hello
   """
-  @spec perform(atom, fun) :: :ok
+  @spec perform(atom, function) :: :ok
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     job = %Job{function: fun, owner: self()}
     GenServer.call(queue_id(pool), {:perform, job})
@@ -88,7 +89,7 @@ defmodule OddJob do
       iex> OddJob.await(job)
       2.6881171418161356e43
   """
-  @spec async_perform(atom, fun) :: job
+  @spec async_perform(atom, function) :: job
   def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
     Async.perform(pool, fun)
   end
@@ -105,6 +106,33 @@ defmodule OddJob do
   @spec await(job, timeout) :: any
   def await(job, timeout \\ 5000) when is_struct(job, Job) do
     Async.await(job, timeout)
+  end
+
+  @doc """
+  Adds a job to the queue of the job `pool` after the given `time` has elapsed.
+
+  `time` is an integer that indicates the number of milliseconds that should elapse before
+  the job enters the queue. The timed message is executed under a separate supervised process,
+  so if the caller crashes the job will still be performed. A timer reference is returned,
+  which can be read with `Process.read_timer/1` or canceled with `Process.cancel_timer/1`.
+
+  ## Examples
+
+      timer_ref = OddJob.perform_after(5000, :work, fn -> deferred_job() end)
+      Process.read_timer(timer_ref)
+      #=> 2836 # time remaining before job enters the queue
+      Process.cancel_timer(timer_ref)
+      #=> 1175 # job has been cancelled
+
+      timer_ref = OddJob.perform_after(5000, :work, fn -> deferred_job() end)
+      Process.sleep(6000)
+      Process.cancel_timer(timer_ref)
+      #=> false # too much time has passed to cancel the job
+  """
+  @spec perform_after(integer, atom, function) :: reference
+  def perform_after(time, pool, fun)
+      when is_integer(time) and is_atom(pool) and is_function(fun) do
+    Scheduler.perform_after(time, pool, fun)
   end
 
   @doc """

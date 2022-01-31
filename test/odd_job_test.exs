@@ -125,6 +125,43 @@ defmodule OddJobTest do
     end
   end
 
+  describe "perform_after/3" do
+    test "starts a job after the specified time" do
+      caller = self()
+      timer_ref = perform_after(50, :work, fn -> send(caller, :finished) end)
+      t1 = Time.utc_now()
+      assert Process.read_timer(timer_ref) > 0
+
+      result =
+        receive do
+          msg -> msg
+        end
+
+      assert Process.read_timer(timer_ref) == false
+      t2 = Time.utc_now()
+      diff = Time.diff(t2, t1, :millisecond)
+
+      assert result == :finished
+      assert diff >= 49
+      assert diff <= 51
+    end
+
+    test "timed jobs can be canceled" do
+      caller = self()
+      timer_ref = perform_after(25, :work, fn -> send(caller, :delivered) end)
+      Process.cancel_timer(timer_ref)
+
+      result =
+        receive do
+          msg -> msg
+        after
+          50 -> :not_delivered
+        end
+
+      assert result == :not_delivered
+    end
+  end
+
   describe "workers/1" do
     test "returns a list of worker pids" do
       workers = workers(:work)

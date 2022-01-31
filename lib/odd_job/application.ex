@@ -17,7 +17,7 @@ defmodule OddJob.Application do
         {OddJob, :default}
       ] ++ pools()
 
-    if Mix.env() == :dev, do: :observer.start()
+    # if Mix.env() == :dev, do: :observer.start()
     opts = [strategy: :one_for_one, name: OddJob.Supervisor]
     Supervisor.start_link(children, opts)
   end

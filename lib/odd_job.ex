@@ -105,6 +105,34 @@ defmodule OddJob do
   end
 
   @doc """
+  Awaits replies form multiple async jobs and returns them in a list.
+
+  This function receives a list of jobs and waits for their replies in the given time interval.
+  It returns a list of the results, in the same order as the jobs supplied in the `jobs` input argument.
+
+  If any of the job worker processes dies, the caller process will exit with the same reason as that worker.
+
+  A timeout, in milliseconds or `:infinity`, can be given with a default value of `5000`. If the timeout
+  is exceeded, then the caller process will exit. Any worker processes that are linked to the caller process
+  (which is the case when a job is started with `async_perform/2`) will also exit.
+
+  This function assumes the jobs' monitors are still active or the monitor's :DOWN message is in the
+  message queue. If any jobs have been demonitored, or the message already received, this function will
+  wait for the duration of the timeout.
+
+  ## Examples
+
+      iex> job1 = OddJob.async_perform(:work, fn -> 2 ** 2 end)
+      iex> job2 = OddJob.async_perform(:work, fn -> 3 ** 2 end)
+      iex> [job1, job2] |> OddJob.await_many()
+      [4, 9]
+  """
+  @spec await_many([job], timeout) :: [any]
+  def await_many(jobs, timeout \\ 5000) when is_list(jobs) do
+    Async.await_many(jobs, timeout)
+  end
+
+  @doc """
   Adds a job to the queue of the job `pool` after the given `timer` has elapsed.
 
   `timer` is an integer that indicates the number of milliseconds that should elapse before

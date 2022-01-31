@@ -88,6 +88,61 @@ defmodule OddJobTest do
       assert ref == job.ref
       assert timeout == 5000
     end
+
+    test "raises an ArgumentError if the job is awaited on by a process that's not the caller" do
+      job = async_perform(:work, fn -> 1 + 1 end)
+
+      Task.start(fn ->
+        assert_raise(ArgumentError, fn -> await(job) end)
+      end)
+    end
+  end
+
+  describe "await_many/2" do
+    test "awaits on multiple async jobs and returns their results" do
+      range = 1..20
+      jobs = for i <- range, do: async_perform(:work, fn -> i end)
+      result = await_many(jobs)
+      assert result == Enum.to_list(range)
+    end
+
+    test "accepts an optional timeout that will exit if the jobs take too long" do
+      jobs = for _ <- 1..5, do: async_perform(:work, fn -> Process.sleep(10) end)
+      message = catch_exit(await_many(jobs, 5))
+      assert {:timeout, {OddJob.Async, :await_many, [^jobs, 5]}} = message
+      Process.sleep(10)
+    end
+
+    test "will timeout waiting for jobs that have already been waited on" do
+      range = 1..20
+      jobs = for i <- range, do: async_perform(:work, fn -> i end)
+      result = await_many(jobs)
+      assert result == Enum.to_list(range)
+      message = catch_exit(await_many(jobs, 10))
+      assert {:timeout, {OddJob.Async, :await_many, [^jobs, 10]}} = message
+    end
+
+    test "exits if one of the awaited jobs sends an exit signal" do
+      jobs = for _ <- 1..5, do: async_perform(:work, fn -> :sucess end)
+      jobs = jobs ++ [async_perform(:work, fn -> exit(:normal) end)]
+      message = catch_exit(await_many(jobs))
+      assert {:normal, {OddJob.Async, :await_many, [^jobs, 5000]}} = message
+      Process.sleep(5)
+    end
+
+    test "raises an ArgumentError if any of the jobs are awaited on by a process that's not the caller" do
+      job = async_perform(:work, fn -> 1 + 1 end)
+
+      Task.start(fn ->
+        jobs =
+          [job] ++
+            for i <- 2..5 do
+              async_perform(:work, fn -> i + i end)
+            end
+
+        assert_raise(ArgumentError, fn -> await_many(jobs) end)
+      end)
+    end
   end
 
   describe "perform/2" do
@@ -251,7 +306,7 @@ defmodule OddJobTest do
 
   defp match_exit_message(msg) do
     {reason,
-     {OddJob.Async, :await,
+     {OddJob.Async, _,
       [
         %OddJob.Job{
           async: true,

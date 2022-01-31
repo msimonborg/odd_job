@@ -2,12 +2,12 @@ defmodule MacrosTest do
   use ExUnit.Case, async: false
   use OddJob
 
-  describe "to_perform_this/2" do
+  describe "perform_this/2" do
     test "performs a fire and forget job" do
       caller = self()
       t1 = Time.utc_now()
 
-      to_perform_this :work do
+      perform_this :work do
         Process.sleep(10)
         send(caller, :hello)
       end
@@ -24,12 +24,12 @@ defmodule MacrosTest do
     end
   end
 
-  describe "to_perform_this/3 async" do
+  describe "perform_this/3 async" do
     test "performs an async job that can be awaited on" do
       value = 100.0
 
       job =
-        to_perform_this :work, :async do
+        perform_this :work, :async do
           :math.exp(value)
           |> :math.log()
         end

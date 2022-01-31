@@ -26,4 +26,4 @@ odd_job-*.tar
 /tmp/
 
 # Code testing scratch file
-test.exs
+/test.exs

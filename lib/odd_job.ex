@@ -70,7 +70,7 @@ defmodule OddJob do
 
       use OddJob
 
-      to_perform_this :work do
+      perform_this :work do
         some_work()
         some_other_work()
       end
@@ -79,7 +79,7 @@ defmodule OddJob do
 
       iex> use OddJob
       iex> caller = self()
-      iex> to_perform_this :work do
+      iex> perform_this :work do
       ...>   send(caller, 1 + 1)
       ...> end
       iex> receive do
@@ -87,7 +87,7 @@ defmodule OddJob do
       ...> end
       2
   """
-  defmacro to_perform_this(pool, do: block) do
+  defmacro perform_this(pool, do: block) do
     quote do
       OddJob.perform(unquote(pool), fn -> unquote(block) end)
     end
@@ -104,7 +104,7 @@ defmodule OddJob do
 
       use OddJob
 
-      to_perform_this :work, :async do
+      perform_this :work, :async do
         some_work()
         some_other_work()
       end
@@ -113,13 +113,13 @@ defmodule OddJob do
   ## Examples
 
       iex> use OddJob
-      iex> job = to_perform_this :work, :async do
+      iex> job = perform_this :work, :async do
       ...>   1 + 1
       ...> end
       iex> await(job)
       2
   """
-  defmacro to_perform_this(pool, :async, do: block) do
+  defmacro perform_this(pool, :async, do: block) do
     quote do
       OddJob.async_perform(unquote(pool), fn -> unquote(block) end)
     end

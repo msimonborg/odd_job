@@ -53,6 +53,79 @@ defmodule OddJob do
         }
 
   @doc false
+  defmacro __using__([]) do
+    quote location: :keep do
+      import unquote(OddJob)
+      require unquote(OddJob)
+    end
+  end
+
+  @doc """
+  A macro for creating jobs with an expressive DSL.
+
+  Functions like `perform/2`, except it accepts a `do` block instead of an
+  anonymous function.
+
+  You must `use` or `require` `OddJob` to use macros:
+
+      use OddJob
+
+      to_perform_this :work do
+        some_work()
+        some_other_work()
+      end
+
+  ## Examples
+
+      iex> use OddJob
+      iex> caller = self()
+      iex> to_perform_this :work do
+      ...>   send(caller, 1 + 1)
+      ...> end
+      iex> receive do
+      ...>   msg -> msg
+      ...> end
+      2
+  """
+  defmacro to_perform_this(pool, do: block) do
+    quote do
+      OddJob.perform(unquote(pool), fn -> unquote(block) end)
+    end
+  end
+
+  @doc """
+  A macro for creating async jobs with an expressive DSL.
+
+  Functions like `async_perform/2`, except it accepts a `do` block instead of an
+  anonymous function. The first argument is an atom naming the `pool` that should do
+  the work. The second argument is the atom `:async`.
+
+  You must `use` or `require` `OddJob` to use macros:
+
+      use OddJob
+
+      to_perform_this :work, :async do
+        some_work()
+        some_other_work()
+      end
+      |> await()
+
+  ## Examples
+
+      iex> use OddJob
+      iex> job = to_perform_this :work, :async do
+      ...>   1 + 1
+      ...> end
+      iex> await(job)
+      2
+  """
+  defmacro to_perform_this(pool, :async, do: block) do
+    quote do
+      OddJob.async_perform(unquote(pool), fn -> unquote(block) end)
+    end
+  end
+
+  @doc false
   @spec child_spec(atom) :: child_spec
   defdelegate child_spec(name), to: OddJob.Supervisor
 

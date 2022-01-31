@@ -21,7 +21,7 @@ defmodule OddJob.Application do
     Supervisor.start_link(children, opts)
   end
 
-  defp pools() do
+  defp pools do
     pools = Application.get_env(:odd_job, :supervise, [])
     for pool <- pools, do: {OddJob, pool}
   end

@@ -42,11 +42,7 @@ defmodule OddJob do
       OddJob.perform(:task, fn -> update_external_application() end)
 
   """
-
-  alias OddJob.Job
-  alias OddJob.Queue
-  alias OddJob.Async
-  alias OddJob.Scheduler
+  alias OddJob.{Async, Job, Queue, Scheduler}
 
   @type job :: Job.t()
   @type queue :: Queue.t()

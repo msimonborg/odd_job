@@ -18,7 +18,7 @@ defmodule OddJob.MixProject do
         "coveralls.html": :test,
         "coveralls.travis": :test,
         "coveralls.safe_travis": :test,
-        "receiver.build": :test
+        odd_job: :test
       ],
       description: description(),
       package: package(),
@@ -39,9 +39,10 @@ defmodule OddJob.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.24", only: :dev, runtime: false},
-      {:excoveralls, ">= 0.0.0", only: :test},
-      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.28", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.14.4", only: :test},
+      {:mock, "~> 0.3.7", only: :test},
       {:receiver, "~> 0.2.2", only: :test}
     ]
   end

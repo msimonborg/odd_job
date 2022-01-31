@@ -1,4 +1,5 @@
 # OddJob
+[![Hex pm](https://img.shields.io/hexpm/v/odd_job.svg?style=flat)](https://hex.pm/packages/odd_job)
 
 Job pools for Elixir OTP applications, written in Elixir.
 

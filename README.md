@@ -3,6 +3,8 @@
 
 Job pools for Elixir OTP applications, written in Elixir.
 
+Use OddJob when you want to limit concurrency of background processing in your Elixir app. A good use case is forcing backpressure on calls to external APIs.
+
 ## Installation
 
 The package can be installed by adding `odd_job` to your list of dependencies in `mix.exs`:
@@ -10,7 +12,7 @@ The package can be installed by adding `odd_job` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:odd_job, "~> 0.1"}
+    {:odd_job, "~> 0.2.2"}
   ]
 end
 ```
@@ -79,9 +81,11 @@ OddJob.perform(:email, fn -> send_email(user, data) end)
 ```
 
 If a worker in the pool is available then the job will be performed right away. If all of the workers
-are already assigned to other jobs then the new job will be added to a FIFO queue. Jobs in the queue are performed one-by-one as workers become available.
+are already assigned to other jobs then the new job will be added to a FIFO queue. Jobs in the queue are performed as workers become available.
 
-Jobs can be scheduled for later with `perform_after/3` and `perform_at/3`.
+Use `perform/2` for fire and forget jobs where you don't care about the results or if it succeeds. `async_perform/2` follows the async/await pattern in the `Task` module, and is useful when you need to retrieve the results and you care about success or failure.
+
+Jobs can be scheduled for later with `perform_after/3` and `perform_at/3`:
 
 ```elixir
 OddJob.perform_after(1_000_000, :job, fn -> clean_database() end) # accepts a timer in milliseconds
@@ -90,10 +94,10 @@ time = ~T[03:00:00.000000]
 OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a valid Time or DateTime struct
 ```
 
-Scheduling functions return a unique timer reference which can be read with `Process.read_timer` and
+The scheduling functions return a unique timer reference which can be read with `Process.read_timer` and
 cancelled with `Process.cancel_timer`, which will cancel execution of the job itself. When the timer is up the job will be sent to the pool and can no longer be aborted.
 
-Note that there is no guarantee that a scheduled job will be performed right away when the timer runs up. Like all jobs it is sent to the pool and if all workers are busy at that time then the job enters the queue to be performed when a worker is available.
+Note that there is no guarantee that a scheduled job will be performed right away when the timer runs out. Like all jobs it is sent to the pool and if all workers are busy at that time then the job enters the queue to be performed when a worker is available.
 
 ## Documentation
 

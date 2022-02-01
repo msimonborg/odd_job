@@ -129,6 +129,10 @@ defmodule OddJob do
 
   For more usage, explore the [documentation](https://hexdocs.pm/odd_job).
 
+  ## License
+
+  [MIT - Copyright (c) 2022 M. Simon Borg](https://github.com/msimonborg/odd_job/blob/main/LICENSE.txt)
+
   """
   alias OddJob.{Async, Job, Queue, Scheduler}
 

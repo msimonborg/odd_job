@@ -143,7 +143,7 @@ If you have an idea about how to improve OddJob please follow these steps:
 4. Code it
 5. Document it (*especially public functions!!!*)
 6. Test it (*and make sure they pass*)
-7. Run `mix odd_job` to run the formatter, check for test coverage (> 90% please), and run static code analysis
+7. Run `mix odd_job` to format, check test coverage (> 90% please), and run static code analysis
 8. Commit it
 9. Push it
 10. Create a pull request
@@ -152,3 +152,6 @@ Thank you!
 
 - Matt
 
+## License
+
+[MIT - Copyright (c) 2022 M. Simon Borg](https://github.com/msimonborg/odd_job/blob/main/LICENSE.txt)

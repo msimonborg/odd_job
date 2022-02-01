@@ -111,8 +111,8 @@ defmodule OddJob do
   ```
 
   The scheduling functions return a unique timer reference which can be read with `Process.read_timer/1` and
-  cancelled with `Process.cancel_timer/1`, which will cancel execution of the job itself. When the timer is
-  up the job will be sent to the pool and can no longer be aborted.
+  cancelled with `OddJob.cancel_timer/1`, which will cancel execution of the job itself *and* cause the scheduler
+  process to exit. When the timer is up the job will be sent to the pool and can no longer be aborted.
 
   ```elixir
   ref = OddJob.perform_after(5000, :job, fn -> :will_be_canceled end)

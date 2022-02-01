@@ -341,6 +341,36 @@ defmodule OddJob do
   end
 
   @doc """
+  Cancels a scheduled job.
+
+  `timer_ref` is the unique reference returned by `perform_at` or `perform_after`. Returns the
+  number of milliseconds left in the timer when cancelled, or `false` if the timer already
+  expired. If the return is `false` you can assume that the job has been sent to the pool
+  for execution.
+
+  NOTE: Cancelling the timer with this function ensures that the job is never executed *and* that
+  the scheduler process is exited and not left "hanging". Using `Process.cancel_timer/1` will also
+  cancel execution, but may leave hanging processes. A hanging scheduler process will eventually
+  timeout, but not until one second after the expiration of the original timer.
+
+  ## Examples
+
+      iex> ref = OddJob.perform_after(500, :work, fn -> :never end)
+      iex> time = OddJob.cancel_timer(ref)
+      iex> is_integer(time)
+      true
+
+      iex> ref = OddJob.perform_after(10, :work, fn -> :never end)
+      iex> Process.sleep(11)
+      iex> OddJob.cancel_timer(ref)
+      false
+  """
+  @spec cancel_timer(reference) :: non_neg_integer | false
+  def cancel_timer(timer_ref) when is_reference(timer_ref) do
+    OddJob.Scheduler.cancel_timer(timer_ref)
+  end
+
+  @doc """
   Returns the pid and state of the job `pool`'s queue.
 
   ## Examples

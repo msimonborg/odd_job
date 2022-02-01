@@ -226,7 +226,7 @@ defmodule OddJobTest do
     test "timed jobs can be canceled" do
       caller = self()
       timer_ref = perform_after(25, :work, fn -> send(caller, :delivered) end)
-      Process.cancel_timer(timer_ref)
+      OddJob.cancel_timer(timer_ref)
 
       result =
         receive do
@@ -263,14 +263,14 @@ defmodule OddJobTest do
       timer = Process.read_timer(timer_ref)
       assert timer <= 1_000_000_000
       assert timer >= 999_999_950
-      Process.cancel_timer(timer_ref)
+      OddJob.cancel_timer(timer_ref)
     end
 
     test "scheduled jobs can be canceled" do
       caller = self()
       time = Time.add(Time.utc_now(), 25, :millisecond)
       timer_ref = perform_at(time, :work, fn -> send(caller, :delivered) end)
-      Process.cancel_timer(timer_ref)
+      OddJob.cancel_timer(timer_ref)
 
       result =
         receive do

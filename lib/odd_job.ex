@@ -119,7 +119,7 @@ defmodule OddJob do
 
   # somewhere else in your code
   if some_condition() do
-    Process.cancel_timer(ref)
+    OddJob.cancel_timer(ref)
   end
   ```
 

@@ -118,7 +118,7 @@ Use OddJob when you want to limit concurrency of background processing in your E
 
   # somewhere else in your code
   if some_condition() do
-    Process.cancel_timer(ref)
+    OddJob.cancel_timer(ref)
   end
   ```
 

@@ -69,7 +69,7 @@ name for the pool.
 
 All of the above config options can be combined. You can have a default pool (with an optional custom name), extra pools in the OddJob supervision tree, and pools to be supervised by your own application.
 
-Any pool can then be called by passing its unique name to one of the `OddJob` module's `perform` functions:
+Any pool can then be sent jobs by passing its unique name to one of the `OddJob` module's `perform` functions:
 
 ```elixir
 job = OddJob.async_perform(:external_app, fn -> get_data(user) end)
@@ -77,6 +77,9 @@ job = OddJob.async_perform(:external_app, fn -> get_data(user) end)
 data = OddJob.await(job)
 OddJob.perform(:email, fn -> send_email(user, data) end)
 ```
+
+If a worker in the pool is available then the job will be performed right away. If all of the workers
+are already assigned to other jobs then the new job will be added to a FIFO queue. Jobs in the queue are performed one-by-one as workers become available.
 
 Jobs can be scheduled for later with `perform_after/3` and `perform_at/3`.
 
@@ -87,8 +90,10 @@ time = ~T[03:00:00.000000]
 OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a valid Time or DateTime struct
 ```
 
-Both scheduling functions return a unique timer reference which can be read with `Process.read_timer` and
-cancelled with `Process.cancel_timer`, which will abort execution of the job itself.
+Scheduling functions return a unique timer reference which can be read with `Process.read_timer` and
+cancelled with `Process.cancel_timer`, which will cancel execution of the job itself. When the timer is up the job will be sent to the pool and can no longer be aborted.
+
+Note that there is no guarantee that a scheduled job will be performed right away when the timer runs up. Like all jobs it is sent to the pool and if all workers are busy at that time then the job enters the queue to be performed when a worker is available.
 
 ## Documentation
 

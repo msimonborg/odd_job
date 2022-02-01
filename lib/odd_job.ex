@@ -155,8 +155,17 @@ defmodule OddJob do
   @doc """
   A macro for creating jobs with an expressive DSL.
 
-  Functions like `perform/2`, except it accepts a `do` block instead of an
-  anonymous function.
+  `perform_this` accepts a `do` block instead of an anonymous function. You can pass a few different arguments
+  and options to receive different results:
+
+  ## Arguments
+
+    * `:async` - Passing the atom `:async` as the second argument before the `do` block is equivalent to calling
+    `async_perform/2`
+    * `options` - Pass keyword options as the second argument to access scheduling features. `at: time` is
+    like `perform_at/3`, while `after: timer` is like `perform_after/3`.
+
+  ## Examples
 
   You must `use` or `require` `OddJob` to use macros:
 
@@ -167,17 +176,17 @@ defmodule OddJob do
         some_other_work()
       end
 
-  ## Examples
+      time = ~T[03:00:00.000000]
+      perform_this :work, at: time do
+        scheduled_work()
+      end
 
-      iex> use OddJob
-      iex> caller = self()
-      iex> perform_this :work do
-      ...>   send(caller, 1 + 1)
-      ...> end
-      iex> receive do
-      ...>   msg -> msg
-      ...> end
-      2
+      perform_this :work, after: 5000, do: something_important()
+
+      perform_this :work, :async do
+        get_data()
+      end
+      |> await()
   """
   defmacro perform_this(pool, do: block) do
     quote do
@@ -185,32 +194,18 @@ defmodule OddJob do
     end
   end
 
-  @doc """
-  A macro for creating async jobs with an expressive DSL.
+  defmacro perform_this(pool, [{key, val}, {:do, block}]) do
+    quote do
+      perform_this(unquote(pool), [{unquote(key), unquote(val)}], do: unquote(block))
+    end
+  end
 
-  Functions like `async_perform/2`, except it accepts a `do` block instead of an
-  anonymous function. The first argument is an atom naming the `pool` that should do
-  the work. The second argument is the atom `:async`.
+  defmacro perform_this(pool, [{key, val}], do: block) do
+    quote do
+      OddJob.unquote(:"perform_#{key}")(unquote(val), unquote(pool), fn -> unquote(block) end)
+    end
+  end
 
-  You must `use` or `require` `OddJob` to use macros:
-
-      use OddJob
-
-      perform_this :work, :async do
-        some_work()
-        some_other_work()
-      end
-      |> await()
-
-  ## Examples
-
-      iex> use OddJob
-      iex> job = perform_this :work, :async do
-      ...>   1 + 1
-      ...> end
-      iex> await(job)
-      2
-  """
   defmacro perform_this(pool, :async, do: block) do
     quote do
       OddJob.async_perform(unquote(pool), fn -> unquote(block) end)

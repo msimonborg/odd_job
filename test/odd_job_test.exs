@@ -262,7 +262,7 @@ defmodule OddJobTest do
       timer_ref = perform_at(datetime, :work, fn -> :future end)
       timer = Process.read_timer(timer_ref)
       assert timer <= 1_000_000_000
-      assert timer >= 999_999_980
+      assert timer >= 999_999_950
       Process.cancel_timer(timer_ref)
     end
 

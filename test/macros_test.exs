@@ -36,5 +36,76 @@ defmodule MacrosTest do
 
       assert await(job) == value
     end
+
+    test "can receive a keyword list instead of a do block" do
+      job = perform_this(:work, :async, do: :finally)
+      :do_something_else
+      result = await(job)
+      assert result == :finally
+    end
+  end
+
+  describe "perform_this/3 at" do
+    test "performs a job at the desired time" do
+      caller = self()
+      time = Time.add(Time.utc_now(), 10, :millisecond)
+
+      perform_this :work, at: time do
+        send(caller, Time.utc_now())
+      end
+
+      result =
+        receive do
+          x -> x
+        end
+
+      assert Time.diff(result, time) <= 1
+    end
+
+    test "can receive a keyword list instead of a do block" do
+      caller = self()
+      time = Time.add(Time.utc_now(), 10, :millisecond)
+
+      perform_this(:work, at: time, do: send(caller, Time.utc_now()))
+
+      result =
+        receive do
+          x -> x
+        end
+
+      assert Time.diff(result, time) <= 1
+    end
+  end
+
+  describe "perform_this/3 after" do
+    test "performs a job after the timer has elapsed" do
+      caller = self()
+      time = Time.add(Time.utc_now(), 10, :millisecond)
+
+      perform_this :work, after: 10 do
+        send(caller, Time.utc_now())
+      end
+
+      result =
+        receive do
+          x -> x
+        end
+
+      assert Time.diff(result, time) <= 1
+    end
+
+    test "can receive a keyword list instead of a do block" do
+      caller = self()
+      time = Time.add(Time.utc_now(), 10, :millisecond)
+
+      perform_this(:work, after: 10, do: send(caller, Time.utc_now()))
+
+      result =
+        receive do
+          x -> x
+        end
+
+      assert Time.diff(result, time) <= 1
+    end
   end
 end

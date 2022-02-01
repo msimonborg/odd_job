@@ -16,7 +16,35 @@ end
 ```
 
 ## Getting Started
-You can add job pools directly to the top level of your own application's supervision tree:
+OddJob starts up a supervised job pool of 5 workers out of the box with no extra configuration.
+The default name of this job pool is `:job`, and it can be sent work in the following way:
+
+```elixir
+OddJob.perform(:job, fn -> do_some_work() end)
+```
+
+The default pool can be customized in your config if you want to change the name or pool size:
+
+```elixir
+config :odd_job,
+  default_pool: :work,
+  pool_size: 10 # this changes the size of all pools in your application, defaults to 5
+```
+
+You can also add extra pools to be supervised by the OddJob application supervision tree:
+
+```elixir
+config :odd_job,
+  extra_pools: [:email, :external_app]
+```
+
+If you don't want OddJob to supervise any pools for you (including the default `:job` pool) then pass `false` to the `:default_pool` config key:
+
+```elixir
+config :odd_job, default_pool: false
+```
+
+To supervise your own job pools you can add them directly to the top level of your application's supervision tree:
 
 ```elixir
 defmodule MyApp.Application do
@@ -26,7 +54,7 @@ defmodule MyApp.Application do
 
     children = [
       {OddJob, :email},
-      {OddJob, :task}
+      {OddJob, :external_app}
     ]
 
     opts = [strategy: :one_for_one, name: MyApp.Supervisor]
@@ -39,27 +67,28 @@ The tuple `{OddJob, :email}` will return a child spec for a supervisor that will
 the `:email` pool. The second element of the tuple can be any atom that you want to use as a unique
 name for the pool.
 
-You can also configure `OddJob` to supervise your pools for you in a separate supervision tree.
+All of the above config options can be combined. You can have a default pool (with an optional custom name), extra pools in the OddJob supervision tree, and pools to be supervised by your own application.
 
-In your `config.exs`:
-
-```elixir
-config :odd_job,
-  supervise: [:email, :task]
-```
-
-You can also configure a custom pool size that will apply to all pools:
+Any pool can then be called by passing its unique name to one of the `OddJob` module's `perform` functions:
 
 ```elixir
-config :odd_job, pool_size: 10 # the default value is 5
+job = OddJob.async_perform(:external_app, fn -> get_data(user) end)
+# do something else
+data = OddJob.await(job)
+OddJob.perform(:email, fn -> send_email(user, data) end)
 ```
 
-Now you can call on your pools to perform concurrent fire and forget jobs:
+Jobs can be scheduled for later with `perform_after/3` and `perform_at/3`.
 
 ```elixir
-OddJob.perform(:email, fn -> send_confirmation_email() end)
-OddJob.perform(:task, fn -> update_external_application() end)
+OddJob.perform_after(1_000_000, :job, fn -> clean_database() end) # accepts a timer in milliseconds
+
+time = ~T[03:00:00.000000]
+OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a valid Time or DateTime struct
 ```
+
+Both scheduling functions return a unique timer reference which can be read with `Process.read_timer` and
+cancelled with `Process.cancel_timer`, which will abort execution of the job itself.
 
 ## Documentation
 

@@ -1,4 +1,4 @@
 import Config
 
 config :odd_job,
-  supervise: [:work]
+  extra_pools: [:work]

@@ -343,9 +343,9 @@ defmodule OddJob do
   @doc """
   Cancels a scheduled job.
 
-  `timer_ref` is the unique reference returned by `perform_at` or `perform_after`. Returns the
-  number of milliseconds left in the timer when cancelled, or `false` if the timer already
-  expired. If the return is `false` you can assume that the job has been sent to the pool
+  `timer_ref` is the unique reference returned by `perform_at/3` or `perform_after/3`. This function
+  returns the number of milliseconds left in the timer when cancelled, or `false` if the timer already
+  expired. If the return is `false` you can assume that the job has already been sent to the pool
   for execution.
 
   NOTE: Cancelling the timer with this function ensures that the job is never executed *and* that

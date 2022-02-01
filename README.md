@@ -131,3 +131,24 @@ Use OddJob when you want to limit concurrency of background processing in your E
 
 For more usage, explore the [documentation](https://hexdocs.pm/odd_job).
 
+## Contributing
+
+Pull requests are always welcome. Consider creating an issue first so we can have a discussion.
+
+If you have an idea about how to improve OddJob please follow these steps:
+
+1. Fork it
+2. Clone it
+3. Branch it
+4. Code it
+5. Document it (*especially public functions!!!*)
+6. Test it (*and make sure they pass*)
+7. Run `mix odd_job` to run the formatter, check for test coverage (> 90% please), and run static code analysis
+8. Commit it
+9. Push it
+10. Create a pull request
+
+Thank you!
+
+- Matt
+

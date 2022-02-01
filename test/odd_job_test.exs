@@ -28,6 +28,8 @@ defmodule OddJobTest do
       assert proxy != self()
       assert is_pid(proxy)
       assert is_reference(ref)
+      # Sleep so the caller and proxy don't exit before the worker links and performs its job
+      Process.sleep(10)
     end
 
     test "does not block the caller" do
@@ -95,6 +97,9 @@ defmodule OddJobTest do
       Task.start(fn ->
         assert_raise(ArgumentError, fn -> await(job) end)
       end)
+
+      # Sleep so the caller and proxy don't exit before the worker links and performs its job
+      Process.sleep(10)
     end
   end
 
@@ -142,6 +147,9 @@ defmodule OddJobTest do
 
         assert_raise(ArgumentError, fn -> await_many(jobs) end)
       end)
+
+      # Sleep so the caller and proxy don't exit before the worker links and performs its job
+      Process.sleep(10)
     end
   end
 
@@ -171,18 +179,18 @@ defmodule OddJobTest do
 
     test "can queue up and perform many jobs" do
       perform_expensive_jobs(1..10)
-      Process.sleep(5)
+      Process.sleep(9)
       assert get_stash() |> Enum.sort() == Enum.to_list(1..5)
-      Process.sleep(5)
+      Process.sleep(10)
       assert get_stash() |> Enum.sort() == Enum.to_list(1..10)
-      Process.sleep(5)
+      Process.sleep(10)
     end
 
     test "can instantly start, assign, and monitor a new worker when one fails" do
       perform_expensive_jobs(1..10)
       perform(:work, fn -> Process.exit(self(), :kill) end)
       perform_expensive_jobs(11..20)
-      Process.sleep(5)
+      Process.sleep(9)
       assert get_stash() |> Enum.sort() == Enum.to_list(1..5)
       Process.sleep(10)
       assert get_stash() |> Enum.sort() == Enum.to_list(1..10)
@@ -211,8 +219,8 @@ defmodule OddJobTest do
       diff = Time.diff(t2, t1, :millisecond)
 
       assert result == :finished
-      assert diff >= 49
-      assert diff <= 51
+      assert diff >= 45
+      assert diff <= 55
     end
 
     test "timed jobs can be canceled" do
@@ -245,7 +253,7 @@ defmodule OddJobTest do
 
       t2 = Time.utc_now()
       assert Process.read_timer(timer_ref) == false
-      assert Time.diff(t2, t1, :millisecond) <= 1
+      assert Time.diff(t2, t1, :millisecond) <= 2
       assert results == :finished
     end
 
@@ -254,7 +262,7 @@ defmodule OddJobTest do
       timer_ref = perform_at(datetime, :work, fn -> :future end)
       timer = Process.read_timer(timer_ref)
       assert timer <= 1_000_000_000
-      assert timer >= 999_999_990
+      assert timer >= 999_999_980
       Process.cancel_timer(timer_ref)
     end
 

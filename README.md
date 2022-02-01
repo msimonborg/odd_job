@@ -71,7 +71,7 @@ name for the pool.
 
 All of the above config options can be combined. You can have a default pool (with an optional custom name), extra pools in the OddJob supervision tree, and pools to be supervised by your own application.
 
-Any pool can then be sent jobs by passing its unique name to one of the `OddJob` module's `perform` functions:
+Any pool can then be sent jobs by passing its unique name and an anonymous function to one of the `OddJob` module's `perform` functions:
 
 ```elixir
 job = OddJob.async_perform(:external_app, fn -> get_data(user) end)

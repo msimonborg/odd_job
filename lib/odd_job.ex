@@ -212,6 +212,24 @@ defmodule OddJob do
     end
   end
 
+  defmacro perform_many(pool, opts, do: block) do
+    for_key = case Keyword.fetch(opts, :for) do
+      :error -> raise ArgumentError, message: "must have :for key"
+      {:ok, key} -> key
+    end
+
+    in_key = case Keyword.fetch(opts, :in) do
+      :error -> raise ArgumentError, message: "must have :in key"
+      {:ok, key} -> key
+    end
+
+    quote do
+      for unquote(for_key) <- unquote(in_key) do
+        OddJob.perform(unquote(pool), fn -> unquote(block) end)
+      end
+    end
+  end
+
   @doc false
   @spec child_spec(atom) :: child_spec
   defdelegate child_spec(name), to: OddJob.Supervisor

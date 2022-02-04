@@ -3,6 +3,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/msimonborg/odd_job/badge.svg?branch=main)](https://coveralls.io/github/msimonborg/odd_job?branch=main)
 ![build](https://github.com/msimonborg/odd_job/actions/workflows/elixir.yml/badge.svg)
 
+<!-- MDOC -->
+
 Job pools for Elixir OTP applications, written in Elixir.
 
 Use OddJob when you want to limit concurrency of background processing in your Elixir app. One possible use case is forcing backpressure on calls to external APIs.
@@ -128,6 +130,12 @@ Use OddJob when you want to limit concurrency of background processing in your E
   Like all jobs it is sent to the pool and if all workers are busy at that time then the job enters the
   queue to be performed when a worker is available.
 
+## License
+
+[MIT - Copyright (c) 2022 M. Simon Borg](https://github.com/msimonborg/odd_job/blob/main/LICENSE.txt)
+
+<!-- MDOC -->
+
 ## Documentation
 
 For more usage, explore the [documentation](https://hexdocs.pm/odd_job).
@@ -151,8 +159,4 @@ If you have an idea about how to improve OddJob please follow these steps:
 
 Thank you!
 
-- Matt
-
-## License
-
-[MIT - Copyright (c) 2022 M. Simon Borg](https://github.com/msimonborg/odd_job/blob/main/LICENSE.txt)
+- [@msimonborg](https://github.com/msimonborg)

@@ -12,7 +12,7 @@ Use OddJob when you want to limit concurrency of background processing in your E
   ```elixir
   def deps do
   [
-    {:odd_job, "~> 0.2.2"}
+    {:odd_job, "~> 0.3.0"}
   ]
   end
   ```

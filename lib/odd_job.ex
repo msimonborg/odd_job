@@ -290,19 +290,19 @@ defmodule OddJob do
   `timer` is an integer that indicates the number of milliseconds that should elapse before
   the job is sent to the pool. The timed message is executed under a separate supervised process,
   so if the caller crashes the job will still be performed. A timer reference is returned,
-  which can be read with `Process.read_timer/1` or canceled with `Process.cancel_timer/1`.
+  which can be read with `Process.read_timer/1` or cancelled with `OddJob.cancel_timer/1`.
 
   ## Examples
 
       timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
       Process.read_timer(timer_ref)
       #=> 2836 # time remaining before job is sent to the pool
-      Process.cancel_timer(timer_ref)
+      OddJob.cancel_timer(timer_ref)
       #=> 1175 # job has been cancelled
 
       timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
       Process.sleep(6000)
-      Process.cancel_timer(timer_ref)
+      OddJob.cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
   """
   @spec perform_after(integer, atom, function) :: reference

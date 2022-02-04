@@ -12,7 +12,7 @@ defmodule OddJob do
   ```elixir
   def deps do
   [
-    {:odd_job, "~> 0.3.0"}
+    {:odd_job, "~> 0.3.1"}
   ]
   end
   ```

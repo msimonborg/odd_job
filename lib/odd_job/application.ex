@@ -8,7 +8,6 @@ defmodule OddJob.Application do
     children =
       [
         {Registry, name: OddJob.SchedulerRegistry, keys: :unique},
-        {Registry, name: OddJob.WorkerRegistry, keys: :duplicate},
         {DynamicSupervisor, strategy: :one_for_one, name: OddJob.Async.ProxySupervisor},
         {DynamicSupervisor, strategy: :one_for_one, name: OddJob.SchedulerSupervisor}
       ] ++ default_pool() ++ extra_pools()

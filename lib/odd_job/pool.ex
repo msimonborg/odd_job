@@ -54,19 +54,8 @@ defmodule OddJob.Pool do
   @impl true
   @spec init(any) :: {:ok, t}
   def init(opts) do
-    ensure_all_monitored(opts.pool)
     state = struct(__MODULE__, opts)
     {:ok, state}
-  end
-
-  defp ensure_all_monitored(pool) do
-    # The pool starts up before the workers, so on initial startup when no workers are registered
-    # this function will do nothing. Workers are responsible for registering themselves and requesting
-    # to be monitored by the pool in their init/1 callback. In the unlikely event of a crash/restart
-    # of the pool itself, it should ensure that all living workers are monitored.
-    Registry.dispatch(OddJob.WorkerRegistry, pool, fn workers ->
-      for {worker, :worker} <- workers, do: monitor(self(), worker)
-    end)
   end
 
   @impl true

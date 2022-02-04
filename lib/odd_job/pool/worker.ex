@@ -10,7 +10,7 @@ defmodule OddJob.Pool.Worker do
           pool_id: atom
         }
 
-  @worker_registry OddJob.WorkerRegistry
+  # @worker_registry OddJob.WorkerRegistry
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: :"#{opts.id}")
   end
@@ -18,7 +18,8 @@ defmodule OddJob.Pool.Worker do
   @impl true
   def init(opts) do
     state = struct(__MODULE__, opts)
-    Registry.register(@worker_registry, state.pool, :worker)
+    # Registry.register(@worker_registry, state.pool, :worker)
+    Process.monitor(state.pool_id)
     OddJob.Pool.monitor(state.pool_id, self())
     {:ok, state}
   end
@@ -45,5 +46,15 @@ defmodule OddJob.Pool.Worker do
     results = job.function.()
     GenServer.call(pool_id, :complete)
     %{job | results: results}
+  end
+
+  @impl true
+  def handle_info({:DOWN, _ref, :process, {proc, _}, _reason}, %{pool_id: pool_id} = state) do
+    if proc == pool_id do
+      Process.monitor(pool_id)
+      OddJob.Pool.monitor(pool_id, self())
+    end
+
+    {:noreply, state}
   end
 end

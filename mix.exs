@@ -16,8 +16,7 @@ defmodule OddJob.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test,
-        "coveralls.travis": :test,
-        "coveralls.safe_travis": :test,
+        "coveralls.github": :test,
         odd_job: :test
       ],
       description: description(),

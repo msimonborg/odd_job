@@ -367,7 +367,7 @@ defmodule OddJob do
   """
   @spec cancel_timer(reference) :: non_neg_integer | false
   def cancel_timer(timer_ref) when is_reference(timer_ref) do
-    OddJob.Scheduler.cancel_timer(timer_ref)
+    Scheduler.cancel_timer(timer_ref)
   end
 
   @doc """
@@ -379,7 +379,7 @@ defmodule OddJob do
       iex> is_pid(pid)
       true
       iex> id
-      :odd_job_job_queue
+      :job_queue
   """
   @spec queue(atom) :: {pid, queue}
   def queue(pool) when is_atom(pool) do
@@ -395,7 +395,7 @@ defmodule OddJob do
   ## Examples
 
       iex> OddJob.queue_id(:job)
-      :odd_job_job_queue
+      :job_queue
   """
   @spec queue_id(atom) :: atom
   defdelegate queue_id(pool), to: OddJob.Supervisor
@@ -425,10 +425,10 @@ defmodule OddJob do
   ## Examples
 
       iex> OddJob.supervisor_id(:job)
-      :odd_job_job_sup
+      :job_pool_sup
   """
   @spec supervisor_id(atom) :: atom
-  defdelegate supervisor_id(pool), to: OddJob.Supervisor, as: :id
+  defdelegate supervisor_id(pool), to: OddJob.Pool, as: :id
 
   @doc """
   Returns a list of `pid`s for the specified worker pool.

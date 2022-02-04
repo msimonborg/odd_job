@@ -2,20 +2,24 @@ defmodule OddJob.Worker do
   @moduledoc false
   use GenServer
 
-  defstruct [:id, :queue]
+  defstruct [:id, :pool, :queue]
 
   @type t :: %__MODULE__{
           id: atom,
+          pool: atom,
           queue: atom
         }
 
+  @worker_registry OddJob.WorkerRegistry
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
+    GenServer.start_link(__MODULE__, opts, name: :"#{opts.id}")
   end
 
   @impl true
   def init(opts) do
     state = struct(__MODULE__, opts)
+    Registry.register(@worker_registry, state.pool, :worker)
+    OddJob.Queue.monitor(state.queue, self())
     {:ok, state}
   end
 

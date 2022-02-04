@@ -7,13 +7,13 @@ defmodule OddJob.Queue do
   alias OddJob.Queue, as: Q
 
   @spec __struct__ :: OddJob.Queue.t()
-  defstruct [:id, :supervisor, workers: [], assigned: [], jobs: []]
+  defstruct [:id, :pool, workers: [], assigned: [], jobs: []]
 
   @typedoc """
   The `OddJob.Queue` struct holds the state of the job queue.
 
     * `:id` is an atom representing the registered name of the queue process
-    * `:supervisor` is an atom representing the registered name of the queue's supervisor process
+    * `:pool` is an atom representing the name of the job pool
     * `:workers` is a list of the active worker `pid`s, whether they are busy working or not
     * `:assigned` is a list of the worker `pid`s that are currently assigned to a job
     * `:jobs` is a list of `OddJob.Job` structs representing the jobs that are queued to be performed
@@ -21,7 +21,7 @@ defmodule OddJob.Queue do
   """
   @type t :: %__MODULE__{
           id: atom,
-          supervisor: atom,
+          pool: atom,
           workers: [pid],
           assigned: [pid],
           jobs: [job]
@@ -45,18 +45,28 @@ defmodule OddJob.Queue do
     GenServer.call(queue, :state)
   end
 
+  @doc false
+  @spec monitor(atom | pid, atom | pid) :: :ok
+  def monitor(pool, worker) do
+    GenServer.cast(pool, {:monitor, worker})
+  end
+
   @impl true
   @spec init(any) :: {:ok, t}
   def init(opts) do
-    GenServer.cast(self(), :monitor_workers)
+    ensure_all_monitored(opts.pool)
     state = struct(__MODULE__, opts)
     {:ok, state}
   end
 
-  @impl true
-  def handle_cast(:monitor_workers, %Q{supervisor: supervisor} = state) do
-    workers = monitor_workers(supervisor)
-    {:noreply, %Q{state | workers: workers}}
+  defp ensure_all_monitored(pool) do
+    # The queue starts up before the workers, so on initial startup when no workers are registered
+    # this function will do nothing. Workers are responsible for registering themselves and requesting
+    # to be monitored by the queue in their init/1 callback. In the unlikely event of a crash/restart
+    # of the queue itself, it should ensure that all living workers are monitored.
+    Registry.dispatch(OddJob.WorkerRegistry, pool, fn workers ->
+      for {worker, :worker} <- workers, do: monitor(self(), worker)
+    end)
   end
 
   @impl true
@@ -113,36 +123,11 @@ defmodule OddJob.Queue do
   @impl true
   def handle_info(
         {:DOWN, ref, :process, pid, _reason},
-        %Q{workers: workers, supervisor: supervisor, assigned: assigned} = state
+        %Q{workers: workers, assigned: assigned} = state
       ) do
     Process.demonitor(ref, [:flush])
     workers = workers -- [pid]
     assigned = assigned -- [pid]
-    check_for_new_worker(supervisor, workers)
     {:noreply, %Q{state | workers: workers, assigned: assigned}}
-  end
-
-  defp check_for_new_worker(supervisor, workers) do
-    children =
-      for {_, pid, :worker, [OddJob.Worker]} <- Supervisor.which_children(supervisor) do
-        pid
-      end
-
-    unmonitored = children -- workers
-
-    if unmonitored == [] do
-      check_for_new_worker(supervisor, workers)
-    else
-      for pid <- unmonitored do
-        GenServer.cast(self(), {:monitor, pid})
-      end
-    end
-  end
-
-  defp monitor_workers(supervisor) do
-    for {_, pid, :worker, [OddJob.Worker]} <- Supervisor.which_children(supervisor) do
-      Process.monitor(pid)
-      pid
-    end
   end
 end

@@ -9,11 +9,11 @@ defmodule OddJob.Supervisor do
 
   @impl true
   def init(name) do
-    queue_opts = %{id: queue_id(name), pool: name}
+    pool_opts = %{id: pool_id(name), pool: name}
 
     children = [
-      {OddJob.Queue, queue_opts},
-      {OddJob.Pool, name}
+      {OddJob.Pool, pool_opts},
+      {OddJob.Pool.Supervisor, name}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -27,8 +27,8 @@ defmodule OddJob.Supervisor do
     }
   end
 
-  @spec queue_id(atom | binary) :: atom
-  def queue_id(name) when is_atom(name) or is_binary(name), do: :"#{name}_queue"
+  @spec pool_id(atom | binary) :: atom
+  def pool_id(name) when is_atom(name) or is_binary(name), do: :"#{name}_pool"
 
   defp id(name), do: :"#{name}_sup"
 end

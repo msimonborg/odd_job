@@ -134,10 +134,10 @@ defmodule OddJob do
   [MIT - Copyright (c) 2022 M. Simon Borg](https://github.com/msimonborg/odd_job/blob/main/LICENSE.txt)
 
   """
-  alias OddJob.{Async, Job, Queue, Scheduler}
+  alias OddJob.{Async, Job, Pool, Scheduler}
 
   @type job :: Job.t()
-  @type queue :: Queue.t()
+  @type pool :: Pool.t()
   @type child_spec :: %{
           id: atom,
           start: {OddJob.Supervisor, :start_link, [atom]},
@@ -231,7 +231,7 @@ defmodule OddJob do
   @spec perform(atom, function) :: :ok
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     job = %Job{function: fun, owner: self()}
-    GenServer.call(queue_id(pool), {:perform, job})
+    GenServer.call(pool_id(pool), {:perform, job})
   end
 
   @doc """
@@ -293,10 +293,10 @@ defmodule OddJob do
   end
 
   @doc """
-  Adds a job to the queue of the job `pool` after the given `timer` has elapsed.
+  Sends a job to the `pool` after the given `timer` has elapsed.
 
   `timer` is an integer that indicates the number of milliseconds that should elapse before
-  the job enters the queue. The timed message is executed under a separate supervised process,
+  the job is sent to the pool. The timed message is executed under a separate supervised process,
   so if the caller crashes the job will still be performed. A timer reference is returned,
   which can be read with `Process.read_timer/1` or canceled with `Process.cancel_timer/1`.
 
@@ -304,7 +304,7 @@ defmodule OddJob do
 
       timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
       Process.read_timer(timer_ref)
-      #=> 2836 # time remaining before job enters the queue
+      #=> 2836 # time remaining before job is sent to the pool
       Process.cancel_timer(timer_ref)
       #=> 1175 # job has been cancelled
 
@@ -320,13 +320,13 @@ defmodule OddJob do
   end
 
   @doc """
-  Adds a job to the queue of the job `pool` at the given `time`.
+  Sends a job to the `pool` at the given `time`.
 
   `time` can be a `Time` or a `DateTime` struct. If a `Time` struct is received, then
-  the job will be done the next time the clock strikes the given time. The timed message is executed
+  the job will be done the next time the clock strikes the given time. The timer is executed
   under a separate supervised process, so if the caller crashes the job will still be performed.
   A timer reference is returned, which can be read with `Process.read_timer/1` or canceled with
-  `Process.cancel_timer/1`.
+  `OddJob.cancel_timer/1`.
 
   ## Examples
 
@@ -371,34 +371,34 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the pid and state of the job `pool`'s queue.
+  Returns the pid and state of the job `pool`.
 
   ## Examples
 
-      iex> {pid, %OddJob.Queue{id: id}} = OddJob.queue(:job)
+      iex> {pid, %OddJob.Pool{id: id}} = OddJob.pool(:job)
       iex> is_pid(pid)
       true
       iex> id
-      :job_queue
+      :job_pool
   """
-  @spec queue(atom) :: {pid, queue}
-  def queue(pool) when is_atom(pool) do
-    queue_id = queue_id(pool)
-    state = queue_id |> Queue.state()
-    pid = queue_id |> GenServer.whereis()
+  @spec pool(atom) :: {pid, pool}
+  def pool(pool) when is_atom(pool) do
+    pool_id = pool_id(pool)
+    state = pool_id |> Pool.state()
+    pid = pool_id |> GenServer.whereis()
     {pid, state}
   end
 
   @doc """
-  Returns the ID of the job `pool`'s queue.
+  Returns the ID of the job `pool`.
 
   ## Examples
 
-      iex> OddJob.queue_id(:job)
-      :job_queue
+      iex> OddJob.pool_id(:job)
+      :job_pool
   """
-  @spec queue_id(atom) :: atom
-  defdelegate queue_id(pool), to: OddJob.Supervisor
+  @spec pool_id(atom) :: atom
+  defdelegate pool_id(pool), to: OddJob.Supervisor
 
   @doc """
   Returns the pid of the job `pool`'s supervisor.
@@ -428,7 +428,7 @@ defmodule OddJob do
       :job_pool_sup
   """
   @spec supervisor_id(atom) :: atom
-  defdelegate supervisor_id(pool), to: OddJob.Pool, as: :id
+  defdelegate supervisor_id(pool), to: OddJob.Pool.Supervisor, as: :id
 
   @doc """
   Returns a list of `pid`s for the specified worker pool.
@@ -443,7 +443,7 @@ defmodule OddJob do
   """
   @spec workers(atom) :: [pid]
   def workers(pool) when is_atom(pool) do
-    {_, %{workers: workers}} = queue(pool)
+    {_, %{workers: workers}} = pool(pool)
     workers
   end
 end

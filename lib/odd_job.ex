@@ -147,15 +147,7 @@ defmodule OddJob do
   @doc """
   A macro for creating jobs with an expressive DSL.
 
-  `perform_this` accepts a `do` block instead of an anonymous function. You can pass a few different arguments
-  and options to receive different results:
-
-  ## Arguments
-
-    * `:async` - Passing the atom `:async` as the second argument before the `do` block is equivalent to calling
-    `async_perform/2`
-    * `options` - Pass keyword options as the second argument to access scheduling features. `at: time` is
-    like `perform_at/3`, while `after: timer` is like `perform_after/3`.
+  `perform_this/2` works like `perform/2` except it accepts a `do` block instead of an anonymous function.
 
   ## Examples
 
@@ -168,18 +160,10 @@ defmodule OddJob do
         some_other_work()
       end
 
-      time = ~T[03:00:00.000000]
-      perform_this :work, at: time do
-        scheduled_work()
-      end
-
-      perform_this :work, after: 5000, do: something_important()
-
-      perform_this :work, :async do
-        get_data()
-      end
-      |> await()
+      perform_this :work, do: something_hard()
   """
+  defmacro perform_this(pool, contents)
+
   defmacro perform_this(pool, do: block) do
     quote do
       OddJob.perform(unquote(pool), fn -> unquote(block) end)
@@ -191,6 +175,43 @@ defmodule OddJob do
       perform_this(unquote(pool), [{unquote(key), unquote(val)}], do: unquote(block))
     end
   end
+
+  @doc """
+  A macro for creating jobs with an expressive DSL.
+
+  `perform_this/3` accepts a single configuration option as the second argument that will control execution of
+  the job. The available options prvode the functionality of `async_perform/2`, `perform_at/3`,
+  and `perform_after/3`.
+
+  ## Options
+
+    * `:async` - Passing the atom `:async` as the second argument before the `do` block creates an async
+    job that can be awaited on. See `async_perform/2`.
+    * `at: time` - Use this option to schedule the job for a specific `time` in the future. `time` must be
+    a valid `Time` or `DateTime` struct. See `perform_at/3`.
+    * `after: timer` - Use this option to schedule the job to perform after the given `timer` has elapsed. `timer`
+    must be in milliseconds. See `perform_after/3`.
+
+  ## Examples
+
+      import OddJob
+
+      time = ~T[03:00:00.000000]
+      perform_this :work, at: time do
+        scheduled_work()
+      end
+
+      perform_this :work, after: 5000, do: something_important()
+
+      perform_this :work, :async do
+        get_data()
+      end
+      |> await()
+
+      iex> (perform_this :work, :async, do: 10 ** 2) |> await()
+      100
+  """
+  defmacro perform_this(pool, option, contents)
 
   defmacro perform_this(pool, [{key, val}], do: block) do
     quote do

@@ -1,6 +1,6 @@
 defmodule MacrosTest do
   use ExUnit.Case, async: false
-  use OddJob
+  import OddJob
 
   describe "perform_this/2" do
     test "performs a fire and forget job" do

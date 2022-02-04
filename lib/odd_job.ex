@@ -144,14 +144,6 @@ defmodule OddJob do
           type: :supervisor
         }
 
-  @doc false
-  defmacro __using__([]) do
-    quote location: :keep do
-      import unquote(OddJob)
-      require unquote(OddJob)
-    end
-  end
-
   @doc """
   A macro for creating jobs with an expressive DSL.
 
@@ -167,9 +159,9 @@ defmodule OddJob do
 
   ## Examples
 
-  You must `use` or `require` `OddJob` to use macros:
+  You must `import` or `require` `OddJob` to use macros:
 
-      use OddJob
+      import OddJob
 
       perform_this :work do
         some_work()

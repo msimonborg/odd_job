@@ -16,6 +16,30 @@ defmodule OddJob.Async do
     GenServer.call(pid, {:run, pool, job})
   end
 
+  @spec perform_many(atom, list | map, function) :: [job]
+  def perform_many(pool, collection, fun) do
+    jobs =
+      for item <- collection do
+        {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @server)
+        Process.link(pid)
+        ref = Process.monitor(pid)
+
+        job = %Job{
+          ref: ref,
+          function: fn -> fun.(item) end,
+          owner: self(),
+          proxy: pid,
+          async: true
+        }
+
+        GenServer.cast(pid, {:job, job})
+        job
+      end
+
+    GenServer.cast(pool, {:perform_many, jobs})
+    jobs
+  end
+
   # The rest of this module, covering implementation of the `await` and `await_many` functions,
   # was copied and adapted from the analogous functions in the Elixir standard library's `Task` module.
   # The intention of these functions is to mimic the expected behavior of the `Task` functions.

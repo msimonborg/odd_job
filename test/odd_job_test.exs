@@ -103,16 +103,16 @@ defmodule OddJobTest do
     end
   end
 
-  describe "await_many/2" do
+  describe "asyn_perform_many/3 and await_many/2" do
     test "awaits on multiple async jobs and returns their results" do
-      range = 1..20
-      jobs = for i <- range, do: async_perform(:work, fn -> i end)
+      range = 0..20
+      jobs = async_perform_many(:work, range, fn i -> i end)
       result = await_many(jobs)
       assert result == Enum.to_list(range)
     end
 
     test "accepts an optional timeout that will exit if the jobs take too long" do
-      jobs = for _ <- 1..5, do: async_perform(:work, fn -> Process.sleep(10) end)
+      jobs = async_perform_many(:work, 1..5, fn _ -> Process.sleep(10) end)
       message = catch_exit(await_many(jobs, 5))
       assert {:timeout, {OddJob.Async, :await_many, [^jobs, 5]}} = message
       Process.sleep(10)
@@ -120,7 +120,7 @@ defmodule OddJobTest do
 
     test "will timeout waiting for jobs that have already been waited on" do
       range = 1..20
-      jobs = for i <- range, do: async_perform(:work, fn -> i end)
+      jobs = async_perform_many(:work, range, fn i -> i end)
       result = await_many(jobs)
       assert result == Enum.to_list(range)
       message = catch_exit(await_many(jobs, 10))
@@ -128,7 +128,7 @@ defmodule OddJobTest do
     end
 
     test "exits if one of the awaited jobs sends an exit signal" do
-      jobs = for _ <- 1..5, do: async_perform(:work, fn -> :sucess end)
+      jobs = async_perform_many(:work, 1..5, fn _ -> :sucess end)
       jobs = jobs ++ [async_perform(:work, fn -> exit(:normal) end)]
       message = catch_exit(await_many(jobs))
       assert {:normal, {OddJob.Async, :await_many, [^jobs, 5000]}} = message

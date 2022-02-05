@@ -3,7 +3,7 @@
 ## v0.4.0-dev
 
 ### Added
-
+- `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs
 - Configuration options for `max_restarts` and `max_seconds`
 - Any pool can override the default config and have its own configuration
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec

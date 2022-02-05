@@ -78,6 +78,48 @@ defmodule OddJob.Pool do
   end
 
   @impl true
+  def handle_cast({:perform, job}, state) do
+    state = do_perform(job, state)
+    {:noreply, state}
+  end
+
+  def handle_cast({:perform_many, jobs}, state) do
+    state = do_perform_many(jobs, state)
+    {:noreply, state}
+  end
+
+  defp do_perform_many([], state), do: state
+
+  defp do_perform_many(
+         [job | rest] = new_jobs,
+         %Pool{jobs: jobs, assigned: assigned, workers: workers} = state
+       ) do
+    available = available_workers(workers, assigned)
+
+    if available == [] do
+      %Pool{state | jobs: jobs ++ new_jobs}
+    else
+      [worker | _rest] = available
+      GenServer.cast(worker, {:do_perform, job})
+      do_perform_many(rest, %Pool{state | assigned: assigned ++ [worker]})
+    end
+  end
+
+  defp do_perform(job, %Pool{jobs: jobs, assigned: assigned, workers: workers} = state) do
+    available = available_workers(workers, assigned)
+
+    if available == [] do
+      %Pool{state | jobs: jobs ++ [job]}
+    else
+      [worker | _rest] = available
+      GenServer.cast(worker, {:do_perform, job})
+      %Pool{state | assigned: assigned ++ [worker]}
+    end
+  end
+
+  defp available_workers(workers, assigned), do: workers -- assigned
+
+  @impl true
   def handle_call(:complete, {pid, _}, %Pool{assigned: assigned, jobs: []} = state) do
     {:reply, :ok, %Pool{state | assigned: assigned -- [pid]}}
   end
@@ -90,26 +132,8 @@ defmodule OddJob.Pool do
   end
 
   @impl true
-  def handle_call({:perform, job}, _from, state) do
-    state = do_perform(job, state)
-    {:reply, :ok, state}
-  end
-
-  @impl true
   def handle_call(:state, _from, state) do
     {:reply, state, state}
-  end
-
-  defp do_perform(job, %Pool{jobs: jobs, assigned: assigned, workers: workers} = state) do
-    available = workers -- assigned
-
-    if available == [] do
-      %Pool{state | jobs: jobs ++ [job]}
-    else
-      [worker | _rest] = available
-      GenServer.cast(worker, {:do_perform, job})
-      %Pool{state | assigned: assigned ++ [worker]}
-    end
   end
 
   @impl true

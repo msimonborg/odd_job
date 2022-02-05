@@ -20,6 +20,8 @@ defmodule OddJob do
           type: :supervisor
         }
 
+  defguard is_enumerable(term) when is_list(term) or is_map(term)
+
   @doc """
   A macro for creating jobs with an expressive DSL.
 
@@ -117,10 +119,39 @@ defmodule OddJob do
       ...> end
       :hello
   """
+  @doc since: "0.1.0"
   @spec perform(atom, function) :: :ok
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     job = %Job{function: fun, owner: self()}
-    GenServer.call(pool_id(pool), {:perform, job})
+
+    pool
+    |> pool_id()
+    |> GenServer.cast({:perform, job})
+  end
+
+  @doc """
+  Sends a collection of jobs to the pool.
+
+  ## Examples
+
+      iex> caller = self()
+      iex> OddJob.perform_many(:job, 1..5, fn x -> send(caller, x) end)
+      iex> for x <- 1..5 do
+      ...>   receive do
+      ...>     ^x -> x
+      ...>   end
+      ...> end
+      [1, 2, 3, 4, 5]
+  """
+  @doc since: "0.4.0"
+  @spec perform_many(atom, list | map, function) :: :ok
+  def perform_many(pool, collection, fun)
+      when is_atom(pool) and is_enumerable(collection) and is_function(fun, 1) do
+    jobs = for item <- collection, do: %Job{function: fn -> fun.(item) end, owner: self()}
+
+    pool
+    |> pool_id()
+    |> GenServer.cast({:perform_many, jobs})
   end
 
   @doc """
@@ -136,7 +167,30 @@ defmodule OddJob do
   """
   @spec async_perform(atom, function) :: job
   def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
-    Async.perform(pool, fun)
+    pool
+    |> pool_id()
+    |> Async.perform(fun)
+  end
+
+  @doc """
+  Sends a collection of async jobs to the pool.
+
+  There's a limit to the number of jobs that can be started with this function that
+  roughly equals the BEAM's process limit.
+
+  ## Examples
+
+      iex> jobs = OddJob.async_perform_many(:job, 1..5, fn x -> x ** 2 end)
+      iex> OddJob.await_many(jobs)
+      [1, 4, 9, 16, 25]
+  """
+  @doc since: "0.4.0"
+  @spec async_perform_many(atom, list | map, function) :: [job]
+  def async_perform_many(pool, collection, fun)
+      when is_atom(pool) and is_enumerable(collection) and is_function(fun, 1) do
+    pool
+    |> pool_id()
+    |> Async.perform_many(collection, fun)
   end
 
   @doc """

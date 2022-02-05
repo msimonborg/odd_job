@@ -1,7 +1,6 @@
 defmodule OddJob.Async.ProxyServer do
   @moduledoc false
   use GenServer, restart: :temporary
-  import OddJob, only: [pool_id: 1]
 
   defstruct [:worker_ref, :job]
 
@@ -24,9 +23,11 @@ defmodule OddJob.Async.ProxyServer do
   end
 
   @impl true
+  def handle_cast({:job, job}, state), do: {:noreply, %{state | job: job}}
+
+  @impl true
   def handle_call({:run, pool, job}, _from, state) do
-    pool_id(pool)
-    |> GenServer.call({:perform, job})
+    GenServer.cast(pool, {:perform, job})
 
     {:reply, job, %{state | job: job}}
   end

@@ -8,7 +8,10 @@
 
 Job pools for Elixir OTP applications, written in Elixir.
 
-Use OddJob when you want to limit concurrency of background processing in your Elixir app. One possible use case is forcing backpressure on calls to external APIs.
+Use OddJob when you need to limit concurrency of background processing in your Elixir app, like forcing backpressure on
+calls to databases or external APIs. OddJob is easy to use and configure, and provides functions for fire-and-forget jobs,
+async/await calls where the results must be returned, and job scheduling. Job queues are stored in process memory so no
+database is required.
 
 ## Installation
 
@@ -17,37 +20,73 @@ The package can be installed by adding `odd_job` to your list of dependencies in
 ```elixir
 def deps do
 [
-  {:odd_job, "~> 0.3.3"}
+  {:odd_job, "~> 0.4.0"}
 ]
 end
 ```
 
 ## Getting started
 
-OddJob automatically starts up a supervised job pool of 5 workers out of the box with no extra
-configuration. The default name of this job pool is `:job`, and it can be sent work in the following way:
+After installation you can start processing jobs right away. OddJob automatically starts up a supervised job
+pool of 5 workers out of the box with no configuration required. The default name of this job pool is `:job`,
+and it can be sent work in the following way:
 
 ```elixir
 OddJob.perform(:job, fn -> do_some_work() end)
 ```
+You can skip ahead for more [usage](#module-usage), or read on for a guide to configuring your job pools.
+
+## Configuration
 
 The default pool can be customized in your config if you want to change the name or pool size:
 
 ```elixir
 config :odd_job,
-  default_pool: :work,
-  pool_size: 10 # this changes the size of all pools in your application, defaults to 5
+  default_pool: :work, # :job is the default
+  pool_size: 10 # defaults to 5
 ```
 
-You can also add extra pools to be supervised by the OddJob application supervision tree:
+If you are processing jobs that have a high chance of failure, you may want to customize the `max_restarts` and `max_seconds`
+options to prevent all the workers in a pool from restarting if too many jobs are failing. These options
+default to the `Supervisor` defaults (`max_restarts: 3, max_seconds: 5`) and can be overridden in your config:
+
+```elixir
+config :odd_job,
+  default_pool: :dangerous_work,
+  pool_size: 50,
+  max_restarts: 10,
+  max_seconds: 2
+```
+
+### Extra pools
+
+You can add extra pools to be supervised by the OddJob application supervision tree:
 
 ```elixir
 config :odd_job,
   extra_pools: [:email, :external_app]
 ```
 
-If you don't want OddJob to supervise any pools for you (including the default `:job` pool) then
-pass `false` to the `:default_pool` config key:
+By default, extra pools will be configured with the same options as your default pool. Luckily, extra pools
+can receive their own list of overrides:
+
+```elixir
+config :odd_job,
+  default_pool: :work,
+  pool_size: 50,
+  max_restarts: 5,
+  extra_pools: [
+    :email, # :email will use the defaults
+    external_app: [ # the :external_app pool gets its own config
+      pool_size: 10,
+      max_restarts: 2
+    ]
+  ]
+```
+
+Next we'll see how you can [add job pools to your own application's supervision tree](#module-supervising-job-pools).
+If you don't want OddJob to supervise any pools for you (including the default `:job` pool) then pass `false` 
+to the `:default_pool` config key:
 
 ```elixir
 config :odd_job, default_pool: false
@@ -77,12 +116,29 @@ end
 
 The tuple `{OddJob, :email}` will return a child spec for a supervisor that will start and supervise
 the `:email` pool. The second element of the tuple can be any atom that you want to use as a unique
-name for the pool. You can supervise as many pools as you want, as long as they have unique `name`s.
+name for the pool. You can supervise as many pools as you want, as long as they have unique names.
 
-All of the aforementioned config options can be combined. You can have a default pool (with an optional
-custom name), extra pools in the OddJob supervision tree, and pools to be supervised by your own application.
+Any default configuration options listed in your `config.exs` will also apply to your own supervised
+pools. You can override the config for any pool by passing a keyword list as the second argument
+in the child spec tuple:
 
-## Basic usage and async/await
+```elixir
+def start(_type, _args) do
+
+  children = [
+    {OddJob, :email}, # The :email pool will use the default config
+    {OddJob, name: :external_app, pool_size: 20, max_restarts: 10} # The :external_app pool will not
+  ]
+
+  Supervisor.start_link(children, opts)
+end
+```
+
+All of the previously mentioned config options can be combined. You can have a default pool with an optional
+custom name, extra pools in the OddJob supervision tree, and pools to be supervised by your own application,
+all of which can either use the default config or their own overrides.
+
+## Usage
 
 A job pool can be sent jobs by passing its unique name and an anonymous function to one of the `OddJob`
 module's `perform` functions:
@@ -116,7 +172,9 @@ OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a valid
 ```
 
 The scheduling functions return a unique timer reference which can be read with `Process.read_timer/1` and
-cancelled with `OddJob.cancel_timer/1`, which will cancel execution of the job itself *and* cause the scheduler process to exit. When the timer is up the job will be sent to the pool and can no longer be aborted.
+cancelled with `OddJob.cancel_timer/1`, which will cancel execution of the job itself *and* clean up after
+itself by causing the scheduler process to exit. When the timer is up the job will be sent to the pool and
+can no longer be aborted.
 
 ```elixir
 ref = OddJob.perform_after(5000, :job, fn -> :will_be_canceled end)
@@ -127,9 +185,9 @@ if some_condition() do
 end
 ```
 
-Note that there is no guarantee that a scheduled job will be performed right away when the timer runs out.
-Like all jobs it is sent to the pool and if all workers are busy at that time then the job enters the
-queue to be performed when a worker is available.
+Note that there is no guarantee that a scheduled job will be executed immediately when the timer runs out.
+Like all jobs it is sent to the pool and if all workers are busy then the job enters the queue to be 
+performed as soon as a worker is available.
 
 ## License
 

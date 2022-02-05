@@ -54,7 +54,7 @@ defmodule OddJob do
   A macro for creating jobs with an expressive DSL.
 
   `perform_this/3` accepts a single configuration option as the second argument that will control execution of
-  the job. The available options prvode the functionality of `async_perform/2`, `perform_at/3`,
+  the job. The available options provide the functionality of `async_perform/2`, `perform_at/3`,
   and `perform_after/3`.
 
   ## Options

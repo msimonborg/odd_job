@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.3
+
+- Fix a typo in documentation.
+
 ## v0.3.2
 
 - Improve documentation of `perform_this` macros.

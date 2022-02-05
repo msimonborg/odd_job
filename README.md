@@ -16,7 +16,7 @@ The package can be installed by adding `odd_job` to your list of dependencies in
 ```elixir
 def deps do
 [
-  {:odd_job, "~> 0.3.2"}
+  {:odd_job, "~> 0.3.3"}
 ]
 end
 ```

@@ -3,14 +3,15 @@ defmodule OddJob.Pool.Supervisor do
 
   use Supervisor
 
-  def start_link([name, opts]) do
-    Supervisor.start_link(__MODULE__, [name, opts], name: id(name))
+  def start_link(opts) do
+    Supervisor.start_link(__MODULE__, opts, name: id(opts[:name]))
   end
 
-  def init([name, opts]) do
+  def init(opts) do
     config = Application.get_all_env(:odd_job)
     default_pool_size = Keyword.get(config, :pool_size, 5)
     {pool_size, opts} = Keyword.pop(opts, :pool_size, default_pool_size)
+    {name, opts} = Keyword.pop!(opts, :name)
 
     default_opts = [
       strategy: :one_for_one,
@@ -18,8 +19,8 @@ defmodule OddJob.Pool.Supervisor do
       max_seconds: Keyword.get(config, :max_seconds, 5)
     ]
 
-    opts = Keyword.merge(default_opts, opts)
     children = workers(name, pool_size)
+    opts = Keyword.merge(default_opts, opts)
     Supervisor.init(children, opts)
   end
 

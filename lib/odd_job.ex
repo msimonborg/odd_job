@@ -5,6 +5,8 @@ defmodule OddJob do
              |> File.read!()
              |> String.split("<!-- MDOC -->")
              |> Enum.fetch!(1)
+             |> String.replace("#usage", "#module-usage")
+             |> String.replace("#supervising-job-pools", "#module-supervising-job-pools")
 
   @moduledoc since: "0.1.0"
 

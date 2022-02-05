@@ -34,7 +34,7 @@ and it can be sent work in the following way:
 ```elixir
 OddJob.perform(:job, fn -> do_some_work() end)
 ```
-You can skip ahead for more [usage](#module-usage), or read on for a guide to configuring your job pools.
+You can skip ahead for more [usage](#usage), or read on for a guide to configuring your job pools.
 
 ## Configuration
 
@@ -84,7 +84,7 @@ config :odd_job,
   ]
 ```
 
-Next we'll see how you can [add job pools to your own application's supervision tree](#module-supervising-job-pools).
+Next we'll see how you can [add job pools to your own application's supervision tree](#supervising-job-pools).
 If you don't want OddJob to supervise any pools for you (including the default `:job` pool) then pass `false` 
 to the `:default_pool` config key:
 

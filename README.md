@@ -1,5 +1,6 @@
 # OddJob
 [![Hex pm](https://img.shields.io/hexpm/v/odd_job.svg?style=flat)](https://hex.pm/packages/odd_job)
+[![Hex docs](https://img.shields.io/badge/hex.pm-docs-blue)](https://hexdocs.pm/odd_job/api-reference.html)
 [![Coverage Status](https://coveralls.io/repos/github/msimonborg/odd_job/badge.svg?branch=main)](https://coveralls.io/github/msimonborg/odd_job?branch=main)
 ![build](https://github.com/msimonborg/odd_job/actions/workflows/elixir.yml/badge.svg)
 

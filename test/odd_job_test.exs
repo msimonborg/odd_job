@@ -11,6 +11,53 @@ defmodule OddJobTest do
     :ok
   end
 
+  describe "child_spec/1" do
+    test "returns a valid child spec for a pool supervision tree" do
+      assert child_spec(:spec_test) == %{
+               id: :spec_test_sup,
+               start: {OddJob.Supervisor, :start_link, [[name: :spec_test]]},
+               type: :supervisor
+             }
+
+      assert child_spec({:spec_test, pool_size: 10, max_restarts: 20}) == %{
+               id: :spec_test_sup,
+               start:
+                 {OddJob.Supervisor, :start_link,
+                  [[name: :spec_test, pool_size: 10, max_restarts: 20]]},
+               type: :supervisor
+             }
+
+      assert child_spec(name: :spec_test, pool_size: 10, max_restarts: 20) == %{
+               id: :spec_test_sup,
+               start:
+                 {OddJob.Supervisor, :start_link,
+                  [[name: :spec_test, pool_size: 10, max_restarts: 20]]},
+               type: :supervisor
+             }
+    end
+  end
+
+  describe "start_link/1" do
+    test "dynamically starts an OddJob pool supervision tree" do
+      {:ok, pid} = start_link(:start_link)
+      assert pid == GenServer.whereis(:start_link_sup)
+      caller = self()
+      perform(:start_link, fn -> send(caller, "hello from start_link") end)
+
+      greeting =
+        receive do
+          msg -> msg
+        end
+
+      assert greeting == "hello from start_link"
+    end
+
+    test "accepts options for config overrides" do
+      {:ok, _} = start_link(name: :option_test, pool_size: 50)
+      assert length(workers(:option_test)) == 50
+    end
+  end
+
   describe "async_perform/2" do
     test "returns a Job struct with appropriate fields" do
       %OddJob.Job{

@@ -8,7 +8,7 @@ defmodule OddJob.Supervisor do
   @moduledoc since: "0.1.0"
   use Supervisor
 
-  @type start_arg :: atom | {atom, [start_option]} | [start_option]
+  @type start_arg :: atom | [start_option]
   @type start_option ::
           {:name, atom}
           | {:pool_size, non_neg_integer}
@@ -16,7 +16,7 @@ defmodule OddJob.Supervisor do
           | {:max_seconds, non_neg_integer}
   @type child_spec :: %{
           id: atom,
-          start: {OddJob.Supervisor, :start_link, [start_arg]},
+          start: {OddJob.Supervisor, :start_link, [start_option]},
           type: :supervisor
         }
 
@@ -46,6 +46,7 @@ defmodule OddJob.Supervisor do
   end
 
   @doc false
+  @spec child_spec(start_arg | {atom, [start_option]}) :: child_spec
   def child_spec(name) when is_atom(name), do: child_spec(name: name)
 
   def child_spec({name, opts}) when is_atom(name) and is_list(opts) do

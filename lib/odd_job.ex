@@ -15,6 +15,7 @@ defmodule OddJob do
   @type job :: Job.t()
   @type pool :: Pool.t()
   @type start_arg :: OddJob.Supervisor.start_arg()
+  @type start_option :: OddJob.Supervisor.start_option()
   @type child_spec :: OddJob.Supervisor.child_spec()
 
   @doc false
@@ -120,11 +121,21 @@ defmodule OddJob do
       children = [{OddJob, :work}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
-  See `start_link/1` for possible start arguments, and the `Supervisor` module for more information
+  The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
+  can be one of the following:
+
+    * `name` - An atom which will be the name of the pool.
+
+    * `opts` - A keyword list of options.
+
+    * `{name, opts}` - A two element tuple where `name` is an atom and `opts` is a keyword list of
+    options. If `opts` has a `:name` key it will be overridden by the first element of the tuple.
+
+  See `start_link/1` for more information on start arguments and options, and the `Supervisor` module for more
   about child specs.
   """
   @doc since: "0.1.0"
-  @spec child_spec(atom) :: child_spec
+  @spec child_spec(start_arg | {atom, [start_option]}) :: child_spec
   defdelegate child_spec(name), to: OddJob.Supervisor
 
   @doc """
@@ -150,9 +161,6 @@ defmodule OddJob do
       * `:max_seconds` - an integer, the timeframe in seconds in which `max_restarts` applies. Defaults to 3
       or your application's config value. See `Supervisor` for more info on restart intensity options.
 
-    * `{name, opts}` - A two element tuple where `name` is an atom and `opts` is a keyword list of
-    options. If `opts` has a `:name` key it will be overridden by the first element of the tuple.
-
   You can start an `OddJob` pool directly and dynamically:
 
       iex> {:ok, _pid} = OddJob.start_link(name: :event, pool_size: 10)
@@ -164,8 +172,8 @@ defmodule OddJob do
       children = [{OddJob, name: :event, pool_size: 10}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
-  The second element of the child spec tuple can be any of the `start_arg`s that are listed above. See `Supervisor`
-  for more info on starting supervision trees.
+  The second element of the child spec tuple can be any of the `start_arg`s accepted by `start_link/1` or
+  `child_spec/1`. See `Supervisor` for more on starting supervision trees.
   """
   @doc since: "0.4.0"
   @spec start_link(start_arg) :: Supervisor.on_start()

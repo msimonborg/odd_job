@@ -2,6 +2,7 @@ defmodule OddJob.MixProject do
   use Mix.Project
 
   @version "0.4.0-dev"
+  @source_url "https://github.com/msimonborg/odd_job"
 
   def project do
     [
@@ -21,9 +22,10 @@ defmodule OddJob.MixProject do
       ],
       description: description(),
       package: package(),
-      source_url: "https://github.com/msimonborg/odd_job",
-      homepage_url: "https://github.com/msimonborg/odd_job",
-      name: "OddJob"
+      source_url: @source_url,
+      homepage_url: @source_url,
+      name: "OddJob",
+      docs: docs()
     ]
   end
 
@@ -53,7 +55,33 @@ defmodule OddJob.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"Github" => "https://github.com/msimonborg/odd_job"}
+      links: %{
+        Github: @source_url,
+        Changelog: "#{@source_url}/blob/main/CHANGELOG.md"
+      }
+    ]
+  end
+
+  defp docs do
+    [
+      main: "OddJob",
+      source_ref: "v#{@version}",
+      source_url: @source_url,
+      formatters: ["html"],
+      extras: ["CHANGELOG.md"],
+      groups_for_modules: [
+        "Public API": [
+          OddJob
+        ],
+        "Processes and Types": [
+          OddJob.Async.ProxyServer,
+          OddJob.Job,
+          OddJob.Pool,
+          OddJob.Pool.Worker,
+          OddJob.Scheduler,
+          OddJob.Supervisor
+        ]
+      ]
     ]
   end
 end

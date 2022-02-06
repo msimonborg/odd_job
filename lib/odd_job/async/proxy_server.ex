@@ -1,5 +1,18 @@
 defmodule OddJob.Async.ProxyServer do
-  @moduledoc false
+  @moduledoc """
+  The `OddJob.Async.ProxyServer` links the job caller to the worker as the job is being performed.
+
+  The process that calls `async_perform/2` or `async_perform_many/3` must link and monitor the worker
+  performing the job so it can receive the results and be notified of failure by exiting or
+  receiving an `:EXIT` message if the process is trapping exits. However, at the time the function is
+  called it is unknown which worker will receive the job and when. The proxy is a process that is
+  created to provide a link between the caller and the worker.
+
+  When an async funcion is called, the caller links and monitors the proxy, and the proxy `pid` and
+  monitor `reference` are stored in the `OddJob.Job` struct. When the worker receives the job it calls
+  the proxy to be linked and monitored. Job results as well as `:EXIT` and `:DOWN` messages are passed
+  from the worker to the caller via the proxy.
+  """
   @moduledoc since: "0.1.0"
   use GenServer, restart: :temporary
 
@@ -10,8 +23,9 @@ defmodule OddJob.Async.ProxyServer do
           job: job
         }
 
-  @type job :: OddJob.t()
+  @type job :: OddJob.Job.t()
 
+  @doc false
   @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}
   def start_link([]) do
     GenServer.start_link(__MODULE__, [])

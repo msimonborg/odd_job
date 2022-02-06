@@ -12,6 +12,7 @@ tuple: `{OddJob, name: :work, pool_size: 10}`
 
 ### Improved
 - Better documentation about version history.
+- Better module documentation.
 
 ## v0.3.3
 

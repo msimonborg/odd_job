@@ -1,6 +1,7 @@
 defmodule OddJob.Supervisor do
   @moduledoc """
-  The `OddJob.Supervisor` is responsible for starting and supervising a job pool.
+  The `OddJob.Supervisor` is the supervisor at the top of a pool supervision tree, and is
+  responsible for starting and supervising the `OddJob.Pool` and `OddJob.Pool.Worker`s.
 
   All of this module's public functions can be called using the `OddJob` namespace. See
   the `OddJob` documentation for usage.

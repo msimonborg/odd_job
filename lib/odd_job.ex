@@ -121,6 +121,8 @@ defmodule OddJob do
       children = [{OddJob, :work}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
+  ## Arguments
+
   The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
   can be one of the following:
 
@@ -139,7 +141,9 @@ defmodule OddJob do
   defdelegate child_spec(name), to: OddJob.Supervisor
 
   @doc """
-  Starts an OddJob pool supervision tree with a link to the calling process.
+  Starts an `OddJob` pool supervision tree linked to the current process.
+
+  ## Arguments
 
   The `start_arg` can be one of the following:
 
@@ -167,7 +171,7 @@ defmodule OddJob do
       iex> OddJob.async_perform(:event, fn -> :do_something end) |> OddJob.await()
       :do_something
 
-  Normally you would instead use a child spec to start your pools under a supervisor:
+  Normally you would instead start your pools inside a supervision tree:
 
       children = [{OddJob, name: :event, pool_size: 10}]
       Supervisor.start_link(children, strategy: :one_for_one)

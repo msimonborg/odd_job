@@ -1,6 +1,10 @@
 defmodule OddJob.Pool do
   @moduledoc """
-  The job pool that manages the assignments given to the pool workers.
+  The `OddJob.Pool` is a `GenServer` that manages the assignments given to the pool workers.
+
+  The pool receives jobs and assigns them to available workers. If all workers in a pool are
+  currently busy then the pool adds the new jobs to a FIFO queue to be processed as workers
+  become available.
   """
   @moduledoc since: "0.3.0"
   use GenServer

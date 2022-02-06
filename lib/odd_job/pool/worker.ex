@@ -1,5 +1,12 @@
 defmodule OddJob.Pool.Worker do
-  @moduledoc false
+  @moduledoc """
+  The `OddJob.Pool.Worker` is a `GenServer` that performs concurrent work as one of many
+  members of an `OddJob.Pool`.
+
+  The `OddJob.Pool.Worker` checks in with the pool and asks to be monitored upon startup. Once the worker is monitored
+  it can start receiving jobs. In the unlikely event that the pool crashes, the worker will be notified
+  and request to be monitored again when the pool restarts.
+  """
   @moduledoc since: "0.1.0"
   use GenServer
 
@@ -11,6 +18,7 @@ defmodule OddJob.Pool.Worker do
           pool_id: atom
         }
 
+  @doc false
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: :"#{opts.id}")
   end
@@ -23,6 +31,7 @@ defmodule OddJob.Pool.Worker do
     {:ok, state}
   end
 
+  @doc false
   def child_spec(opts) do
     %{id: opts.id, start: {OddJob.Pool.Worker, :start_link, [opts]}}
   end

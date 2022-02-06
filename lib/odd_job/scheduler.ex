@@ -1,5 +1,14 @@
 defmodule OddJob.Scheduler do
-  @moduledoc false
+  @moduledoc """
+  The `OddJob.Scheduler` is responsible for execution of scheduled jobs.
+
+  Each scheduler is a dynamically supervised process that is created to manage a single timer
+  and a job or collection of jobs to send to a pool when the timer expires. After the jobs are
+  delivered to the pool the scheduler shuts itself down. The scheduler process will also
+  automatically shutdown if a timer is cancelled with `OddJob.cancel_timer/1`. If a timer is
+  cancelled with `Process.cancel_timer/1` then the scheduler will eventually timeout and shutdown
+  one second after the timer would have expired.
+  """
   @moduledoc since: "0.2.0"
 
   use GenServer, restart: :temporary
@@ -8,25 +17,30 @@ defmodule OddJob.Scheduler do
   @supervisor OddJob.SchedulerSupervisor
   @registry OddJob.SchedulerRegistry
 
+  @typedoc false
   @type time :: Time.t() | DateTime.t()
 
+  @doc false
   @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}
   def start_link([]) do
     GenServer.start_link(@name, [])
   end
 
+  @doc false
   @spec perform_after(integer, atom, function) :: reference
   def perform_after(timer, pool, fun) do
     {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @name)
     GenServer.call(pid, {:perform_after, timer, pool, fun})
   end
 
+  @doc false
   @spec perform_at(time, atom, function) :: reference
   def perform_at(time, pool, fun) do
     {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @name)
     GenServer.call(pid, {:perform_at, time, pool, fun})
   end
 
+  @doc false
   @spec cancel_timer(reference) :: non_neg_integer | false
   def cancel_timer(timer_ref) when is_reference(timer_ref) do
     result = Process.cancel_timer(timer_ref)

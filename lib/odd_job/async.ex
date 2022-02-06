@@ -5,12 +5,15 @@ defmodule OddJob.Async do
 
   @type job :: OddJob.Job.t()
 
-  @supervisor OddJob.Async.ProxySupervisor
   @server OddJob.Async.ProxyServer
 
   @spec perform(atom, fun) :: job
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
-    {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @server)
+    {:ok, pid} =
+      pool
+      |> supervisor()
+      |> DynamicSupervisor.start_child(@server)
+
     Process.link(pid)
     ref = Process.monitor(pid)
     job = %Job{ref: ref, function: fun, owner: self(), proxy: pid, async: true}
@@ -21,7 +24,11 @@ defmodule OddJob.Async do
   def perform_many(pool, collection, fun) do
     jobs =
       for item <- collection do
-        {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @server)
+        {:ok, pid} =
+          pool
+          |> supervisor()
+          |> DynamicSupervisor.start_child(@server)
+
         Process.link(pid)
         ref = Process.monitor(pid)
 
@@ -40,6 +47,8 @@ defmodule OddJob.Async do
     GenServer.cast(pool, {:perform_many, jobs})
     jobs
   end
+
+  defp supervisor(pool_id), do: OddJob.Supervisor.proxy_sup_name(pool_id)
 
   # The rest of this module, covering implementation of the `await` and `await_many` functions,
   # was copied and adapted from the analogous functions in the Elixir standard library's `Task` module.

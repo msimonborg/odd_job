@@ -39,6 +39,8 @@ defmodule OddJob.Supervisor do
     pool_opts = %{id: pool_id(name), pool: name}
 
     children = [
+      {DynamicSupervisor, strategy: :one_for_one, name: pool_id(name) |> proxy_sup_name()},
+      {DynamicSupervisor, strategy: :one_for_one, name: scheduler_sup_name(name)},
       {OddJob.Pool, pool_opts},
       {OddJob.Pool.Supervisor, opts}
     ]
@@ -65,6 +67,12 @@ defmodule OddJob.Supervisor do
   @doc false
   @spec pool_id(atom | binary) :: atom
   def pool_id(name) when is_atom(name) or is_binary(name), do: :"#{name}_pool"
+  @doc false
+  @spec proxy_sup_name(any) :: atom
+  def proxy_sup_name(name), do: :"#{name}_proxy_sup"
+  @doc false
+  @spec scheduler_sup_name(any) :: atom
+  def scheduler_sup_name(name), do: :"#{name}_scheduler_sup"
 
   defp id(name), do: :"#{name}_sup"
 end

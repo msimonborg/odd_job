@@ -26,7 +26,7 @@ defmodule OddJob.Pool.Supervisor do
   end
 
   @spec id(atom | binary) :: atom
-  def id(name) when is_atom(name) or is_binary(name), do: :"#{name}_pool_sup"
+  def id(name) when is_atom(name) or is_binary(name), do: :"#{name}_pool_worker_sup"
 
   defp workers(name, pool_size) do
     for num <- 1..pool_size do

@@ -11,6 +11,7 @@
 tuple: `{OddJob, name: :work, pool_size: 10}`
 
 ### Improved
+- Every pool supervises its own proxy supervisor and scheduler supervisor to increase isolation between pools.
 - Better documentation about version history.
 - Better module documentation.
 

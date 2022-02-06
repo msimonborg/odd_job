@@ -455,12 +455,12 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the ID of the job `pool`'s supervisor.
+  Returns the ID of the job `pool`'s worker supervisor.
 
   ## Examples
 
       iex> OddJob.supervisor_id(:job)
-      :job_pool_sup
+      :job_pool_worker_sup
   """
   @doc since: "0.1.0"
   @spec supervisor_id(atom) :: atom

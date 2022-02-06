@@ -14,7 +14,6 @@ defmodule OddJob.Scheduler do
   use GenServer, restart: :temporary
 
   @name __MODULE__
-  @supervisor OddJob.SchedulerSupervisor
   @registry OddJob.SchedulerRegistry
 
   @typedoc false
@@ -29,14 +28,22 @@ defmodule OddJob.Scheduler do
   @doc false
   @spec perform_after(integer, atom, function) :: reference
   def perform_after(timer, pool, fun) do
-    {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @name)
+    {:ok, pid} =
+      pool
+      |> supervisor()
+      |> DynamicSupervisor.start_child(@name)
+
     GenServer.call(pid, {:perform_after, timer, pool, fun})
   end
 
   @doc false
   @spec perform_at(time, atom, function) :: reference
   def perform_at(time, pool, fun) do
-    {:ok, pid} = DynamicSupervisor.start_child(@supervisor, @name)
+    {:ok, pid} =
+      pool
+      |> supervisor()
+      |> DynamicSupervisor.start_child(@name)
+
     GenServer.call(pid, {:perform_at, time, pool, fun})
   end
 
@@ -107,4 +114,5 @@ defmodule OddJob.Scheduler do
 
   defp register(timer_ref), do: Registry.register(@registry, timer_ref, :timer)
   defp set_timeout(timer), do: Process.send_after(self(), :timeout, timer + 1000)
+  defp supervisor(pool), do: OddJob.Supervisor.scheduler_sup_name(pool)
 end

@@ -6,9 +6,7 @@ defmodule OddJob.Application do
   def start(_type, _args) do
     children =
       [
-        {Registry, name: OddJob.SchedulerRegistry, keys: :unique},
-        {DynamicSupervisor, strategy: :one_for_one, name: OddJob.Async.ProxySupervisor},
-        {DynamicSupervisor, strategy: :one_for_one, name: OddJob.SchedulerSupervisor}
+        {Registry, name: OddJob.SchedulerRegistry, keys: :unique}
       ] ++ default_pool() ++ extra_pools()
 
     # if Mix.env() == :dev, do: :observer.start()

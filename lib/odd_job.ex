@@ -14,12 +14,10 @@ defmodule OddJob do
 
   @type job :: Job.t()
   @type pool :: Pool.t()
-  @type child_spec :: %{
-          id: atom,
-          start: {OddJob.Supervisor, :start_link, [atom]},
-          type: :supervisor
-        }
+  @type start_arg :: OddJob.Supervisor.start_arg()
+  @type child_spec :: OddJob.Supervisor.child_spec()
 
+  @doc false
   defguard is_enumerable(term) when is_list(term) or is_map(term)
 
   @doc """
@@ -103,9 +101,70 @@ defmodule OddJob do
     end
   end
 
-  @doc false
+  @doc """
+  Returns a specification to start this module under a supervisor.
+
+  ## Examples
+
+      iex> :work |> OddJob.child_spec()
+      %{id: :work_sup, start: {OddJob.Supervisor, :start_link, [[name: :work]]}, type: :supervisor}
+
+  Normally you would start an `OddJob` pool under a supervision tree and not call
+  `child_spec/1` directly.
+
+      children = [{OddJob, :work}]
+      Supervisor.start_link(children, strategy: :one_for_one)
+
+  See `start_link/1` for possible start arguments, and the `Supervisor` module for more information
+  about child specs.
+  """
+  @doc since: "0.1.0"
   @spec child_spec(atom) :: child_spec
   defdelegate child_spec(name), to: OddJob.Supervisor
+
+  @doc """
+  Starts an OddJob pool supervision tree with a link to the calling process.
+
+  The `start_arg` can be one of the following:
+
+    * `name` - An atom which will be the name of the pool. Use this option if you want your pool to assume
+    the default config options.
+
+    * `opts` - A keyword list of options. These options will override the default config. The available
+    options are:
+
+      * `:name` - an atom that will name the pool, and the only required key
+
+      * `:pool_size` - an integer, the number of concurrent workers in the pool. Defaults to 5 or your application's
+      config value.
+
+      * `:max_restarts` - an integer, the number of worker restarts allowed in a given timeframe before all
+      of the workers are restarted. Set a higher number if your jobs have a high rate of expected failure.
+      Defaults to 5 or your application's config value.
+
+      * `:max_seconds` - an integer, the timeframe in seconds in which `max_restarts` applies. Defaults to 3
+      or your application's config value. See `Supervisor` for more info on restart intensity options.
+
+    * `{name, opts}` - A two element tuple where `name` is an atom and `opts` is a keyword list of
+    options. If `opts` has a `:name` key it will be overridden by the first element of the tuple.
+
+  You can start an `OddJob` pool directly and dynamically:
+
+      iex> {:ok, _pid} = OddJob.start_link(name: :event, pool_size: 10)
+      iex> OddJob.async_perform(:event, fn -> :do_something end) |> OddJob.await()
+      :do_something
+
+  Normally you would instead use a child spec to start your pools under a supervisor:
+
+      children = [{OddJob, name: :event, pool_size: 10}]
+      Supervisor.start_link(children, strategy: :one_for_one)
+
+  The second element of the child spec tuple can be any of the `start_arg`s that are listed above. See `Supervisor`
+  for more info on starting supervision trees.
+  """
+  @doc since: "0.4.0"
+  @spec start_link(start_arg) :: Supervisor.on_start()
+  defdelegate start_link(arg), to: OddJob.Supervisor
 
   @doc """
   Performs a fire and forget job.
@@ -326,9 +385,16 @@ defmodule OddJob do
   """
   @spec pool(atom) :: {pid, pool}
   def pool(pool) when is_atom(pool) do
-    pool_id = pool_id(pool)
-    state = pool_id |> Pool.state()
-    pid = pool_id |> GenServer.whereis()
+    state =
+      pool
+      |> pool_id()
+      |> Pool.state()
+
+    pid =
+      pool
+      |> pool_id()
+      |> GenServer.whereis()
+
     {pid, state}
   end
 

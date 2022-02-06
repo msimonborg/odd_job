@@ -3,7 +3,8 @@
 ## v0.4.0-dev
 
 ### Added
-- `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs
+- New functions `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs
+- New public function `OddJob.start_link/1` can be used to dynamically start OddJob pools
 - Configuration options for `max_restarts` and `max_seconds`
 - Any pool can override the default config and have its own configuration
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec

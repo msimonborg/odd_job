@@ -2,6 +2,7 @@ defmodule OddJob.Pool do
   @moduledoc """
   The job pool that manages the assignments given to the pool workers.
   """
+  @moduledoc since: "0.3.0"
   use GenServer
   alias OddJob.Job
   alias OddJob.Pool
@@ -19,6 +20,7 @@ defmodule OddJob.Pool do
     * `:jobs` is a list of `OddJob.Job` structs representing the jobs that are queued to be performed
       when workers are available
   """
+  @typedoc since: "0.3.0"
   @type t :: %__MODULE__{
           id: atom,
           pool: atom,

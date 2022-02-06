@@ -1,5 +1,6 @@
 defmodule OddJob.Async do
   @moduledoc false
+  @moduledoc since: "0.1.0"
   alias OddJob.Job
 
   @type job :: OddJob.Job.t()

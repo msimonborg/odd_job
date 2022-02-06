@@ -1,5 +1,6 @@
 defmodule OddJob.Pool.Worker do
   @moduledoc false
+  @moduledoc since: "0.1.0"
   use GenServer
 
   defstruct [:id, :pool, :pool_id]

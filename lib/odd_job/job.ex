@@ -2,6 +2,7 @@ defmodule OddJob.Job do
   @moduledoc """
   The OddJob.Job struct holds all of the useful information about a job.
   """
+  @moduledoc since: "0.1.0"
   defstruct [:ref, :owner, :function, :results, :proxy, async: false]
 
   @typedoc """
@@ -33,6 +34,7 @@ defmodule OddJob.Job do
       cascade up to the `owner`. The worker sends results back to the `proxy`, which then sends them to the
       `owner` before exiting with reason `:normal`.
   """
+  @typedoc since: "0.1.0"
   @type t :: %__MODULE__{
           async: boolean,
           ref: reference,

@@ -18,6 +18,7 @@ defmodule OddJob do
   @type child_spec :: OddJob.Supervisor.child_spec()
 
   @doc false
+  @doc since: "0.4.0"
   defguard is_enumerable(term) when is_list(term) or is_map(term)
 
   @doc """
@@ -38,6 +39,7 @@ defmodule OddJob do
 
       perform_this :work, do: something_hard()
   """
+  @doc since: "0.3.0"
   defmacro perform_this(pool, contents)
 
   defmacro perform_this(pool, do: block) do
@@ -63,8 +65,10 @@ defmodule OddJob do
 
     * `:async` - Passing the atom `:async` as the second argument before the `do` block creates an async
     job that can be awaited on. See `async_perform/2`.
+
     * `at: time` - Use this option to schedule the job for a specific `time` in the future. `time` must be
     a valid `Time` or `DateTime` struct. See `perform_at/3`.
+
     * `after: timer` - Use this option to schedule the job to perform after the given `timer` has elapsed. `timer`
     must be in milliseconds. See `perform_after/3`.
 
@@ -87,6 +91,7 @@ defmodule OddJob do
       iex> (perform_this :work, :async, do: 10 ** 2) |> await()
       100
   """
+  @doc since: "0.3.0"
   defmacro perform_this(pool, option, contents)
 
   defmacro perform_this(pool, [{key, val}], do: block) do
@@ -224,6 +229,7 @@ defmodule OddJob do
       iex> OddJob.await(job)
       2.6881171418161356e43
   """
+  @doc since: "0.1.0"
   @spec async_perform(atom, function) :: job
   def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
     pool
@@ -261,6 +267,7 @@ defmodule OddJob do
       ...> |> OddJob.await()
       100.0
   """
+  @doc since: "0.1.0"
   @spec await(job, timeout) :: any
   def await(job, timeout \\ 5000) when is_struct(job, Job) do
     Async.await(job, timeout)
@@ -289,6 +296,7 @@ defmodule OddJob do
       iex> [job1, job2] |> OddJob.await_many()
       [4, 9]
   """
+  @doc since: "0.2.0"
   @spec await_many([job], timeout) :: [any]
   def await_many(jobs, timeout \\ 5000) when is_list(jobs) do
     Async.await_many(jobs, timeout)
@@ -315,6 +323,7 @@ defmodule OddJob do
       OddJob.cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
   """
+  @doc since: "0.2.0"
   @spec perform_after(integer, atom, function) :: reference
   def perform_after(timer, pool, fun)
       when is_integer(timer) and is_atom(pool) and is_function(fun) do
@@ -335,6 +344,7 @@ defmodule OddJob do
       time = Time.utc_now() |> Time.add(600, :second)
       OddJob.perform_at(time, :job, fn -> scheduled_job() end)
   """
+  @doc since: "0.2.0"
   @spec perform_at(Time.t() | DateTime.t(), atom, function) :: reference
   def perform_at(time, pool, fun)
       when (is_struct(time, Time) or is_struct(time, DateTime)) and
@@ -367,6 +377,7 @@ defmodule OddJob do
       iex> OddJob.cancel_timer(ref)
       false
   """
+  @doc since: "0.2.0"
   @spec cancel_timer(reference) :: non_neg_integer | false
   def cancel_timer(timer_ref) when is_reference(timer_ref) do
     Scheduler.cancel_timer(timer_ref)
@@ -383,6 +394,7 @@ defmodule OddJob do
       iex> id
       :job_pool
   """
+  @doc since: "0.1.0"
   @spec pool(atom) :: {pid, pool}
   def pool(pool) when is_atom(pool) do
     state =
@@ -406,6 +418,7 @@ defmodule OddJob do
       iex> OddJob.pool_id(:job)
       :job_pool
   """
+  @doc since: "0.1.0"
   @spec pool_id(atom) :: atom
   defdelegate pool_id(pool), to: OddJob.Supervisor
 
@@ -421,6 +434,7 @@ defmodule OddJob do
       OddJob.supervisor(:job)
       #=> #PID<0.239.0>
   """
+  @doc since: "0.1.0"
   @spec supervisor(atom) :: pid
   def supervisor(pool) when is_atom(pool) do
     pool
@@ -436,6 +450,7 @@ defmodule OddJob do
       iex> OddJob.supervisor_id(:job)
       :job_pool_sup
   """
+  @doc since: "0.1.0"
   @spec supervisor_id(atom) :: atom
   defdelegate supervisor_id(pool), to: OddJob.Pool.Supervisor, as: :id
 
@@ -450,6 +465,7 @@ defmodule OddJob do
       OddJob.workers(:job)
       #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
   """
+  @doc since: "0.1.0"
   @spec workers(atom) :: [pid]
   def workers(pool) when is_atom(pool) do
     {_, %{workers: workers}} = pool(pool)

@@ -1,5 +1,6 @@
 defmodule OddJob.Async.ProxyServer do
   @moduledoc false
+  @moduledoc since: "0.1.0"
   use GenServer, restart: :temporary
 
   defstruct [:worker_ref, :job]

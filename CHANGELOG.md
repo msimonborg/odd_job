@@ -10,6 +10,9 @@
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec
 tuple: `{OddJob, name: :work, pool_size: 10}`
 
+### Improved
+- Better documentation about version history.
+
 ## v0.3.3
 
 - Fix a typo in documentation.

@@ -1,5 +1,6 @@
 defmodule OddJob.Pool.Supervisor do
   @moduledoc false
+  @moduledoc since: "0.3.0"
 
   use Supervisor
 

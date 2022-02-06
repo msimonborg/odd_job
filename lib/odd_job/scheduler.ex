@@ -1,5 +1,6 @@
 defmodule OddJob.Scheduler do
   @moduledoc false
+  @moduledoc since: "0.2.0"
 
   use GenServer, restart: :temporary
 

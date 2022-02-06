@@ -1,7 +1,7 @@
 defmodule OddJob.Async do
   @moduledoc false
   @moduledoc since: "0.1.0"
-  alias OddJob.Job
+  alias OddJob.{Job, Utils}
 
   @type job :: OddJob.Job.t()
 
@@ -9,43 +9,52 @@ defmodule OddJob.Async do
 
   @spec perform(atom, fun) :: job
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
-    {:ok, pid} =
-      pool
-      |> supervisor()
-      |> DynamicSupervisor.start_child(@server)
-
-    Process.link(pid)
-    ref = Process.monitor(pid)
-    job = %Job{ref: ref, function: fun, owner: self(), proxy: pid, async: true}
-    GenServer.call(pid, {:run, pool, job})
+    pool
+    |> supervisor()
+    |> DynamicSupervisor.start_child(@server)
+    |> Utils.extract_pid()
+    |> Utils.link_and_monitor()
+    |> build_job(fun)
+    |> run_proxy_with_job(pool)
   end
 
   @spec perform_many(atom, list | map, function) :: [job]
   def perform_many(pool, collection, fun) do
     jobs =
       for item <- collection do
-        {:ok, pid} =
-          pool
-          |> supervisor()
-          |> DynamicSupervisor.start_child(@server)
-
-        Process.link(pid)
-        ref = Process.monitor(pid)
-
-        job = %Job{
-          ref: ref,
-          function: fn -> fun.(item) end,
-          owner: self(),
-          proxy: pid,
-          async: true
-        }
-
-        GenServer.cast(pid, {:job, job})
-        job
+        pool
+        |> supervisor()
+        |> DynamicSupervisor.start_child(@server)
+        |> Utils.extract_pid()
+        |> Utils.link_and_monitor()
+        |> build_job(fn -> fun.(item) end)
+        |> send_job_to_proxy()
       end
 
     GenServer.cast(pool, {:perform_many, jobs})
     jobs
+  end
+
+  @spec run_proxy_with_job(job, atom) :: job
+  defp run_proxy_with_job(job, pool) do
+    GenServer.call(job.proxy, {:run, pool, job})
+  end
+
+  @spec build_job({pid, reference}, function) :: job
+  defp build_job({pid, ref}, function) do
+    %Job{
+      ref: ref,
+      function: function,
+      owner: self(),
+      proxy: pid,
+      async: true
+    }
+  end
+
+  @spec send_job_to_proxy(job) :: job
+  defp send_job_to_proxy(job) do
+    GenServer.cast(job.proxy, {:job, job})
+    job
   end
 
   defp supervisor(pool_id), do: OddJob.Supervisor.proxy_sup_name(pool_id)

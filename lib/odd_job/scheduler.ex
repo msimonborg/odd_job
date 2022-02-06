@@ -12,6 +12,7 @@ defmodule OddJob.Scheduler do
   @moduledoc since: "0.2.0"
 
   use GenServer, restart: :temporary
+  alias OddJob.Utils
 
   @name __MODULE__
   @registry OddJob.SchedulerRegistry
@@ -31,7 +32,7 @@ defmodule OddJob.Scheduler do
     pool
     |> supervisor()
     |> DynamicSupervisor.start_child(@name)
-    |> extract_pid()
+    |> Utils.extract_pid()
     |> GenServer.call({:perform_after, timer, pool, fun})
   end
 
@@ -41,11 +42,9 @@ defmodule OddJob.Scheduler do
     pool
     |> supervisor()
     |> DynamicSupervisor.start_child(@name)
-    |> extract_pid()
+    |> Utils.extract_pid()
     |> GenServer.call({:perform_at, time, pool, fun})
   end
-
-  defp extract_pid({:ok, pid}), do: pid
 
   defp supervisor(pool), do: OddJob.Supervisor.scheduler_sup_name(pool)
 

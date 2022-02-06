@@ -150,7 +150,7 @@ defmodule OddJobTest do
     end
   end
 
-  describe "asyn_perform_many/3 and await_many/2" do
+  describe "async_perform_many/3 and await_many/2" do
     test "awaits on multiple async jobs and returns their results" do
       range = 0..20
       jobs = async_perform_many(:work, range, fn i -> i end)
@@ -186,17 +186,27 @@ defmodule OddJobTest do
       job = async_perform(:work, fn -> 1 + 1 end)
 
       Task.start(fn ->
-        jobs =
-          [job] ++
-            for i <- 2..5 do
-              async_perform(:work, fn -> i + i end)
-            end
-
+        jobs = async_perform_many(:job, 2..5, fn x -> x + x end) ++ [job]
         assert_raise(ArgumentError, fn -> await_many(jobs) end)
       end)
 
       # Sleep so the caller and proxy don't exit before the worker links and performs its job
       Process.sleep(10)
+    end
+
+    test "can perform a massive number of async jobs" do
+      {:ok, pid} = OddJob.start_link(name: :massive_job, pool_size: 1000)
+
+      result =
+        :massive_job
+        |> async_perform_many(1..100_000, fn x -> :math.log(x) end)
+        |> await_many()
+
+      assert length(result) == 100_000
+      assert List.first(result) == 0.0
+      assert List.last(result) == 11.512925464970229
+
+      Supervisor.stop(pid)
     end
   end
 

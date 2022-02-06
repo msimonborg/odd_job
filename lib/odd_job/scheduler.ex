@@ -28,24 +28,26 @@ defmodule OddJob.Scheduler do
   @doc false
   @spec perform_after(integer, atom, function) :: reference
   def perform_after(timer, pool, fun) do
-    {:ok, pid} =
-      pool
-      |> supervisor()
-      |> DynamicSupervisor.start_child(@name)
-
-    GenServer.call(pid, {:perform_after, timer, pool, fun})
+    pool
+    |> supervisor()
+    |> DynamicSupervisor.start_child(@name)
+    |> extract_pid()
+    |> GenServer.call({:perform_after, timer, pool, fun})
   end
 
   @doc false
   @spec perform_at(time, atom, function) :: reference
   def perform_at(time, pool, fun) do
-    {:ok, pid} =
-      pool
-      |> supervisor()
-      |> DynamicSupervisor.start_child(@name)
-
-    GenServer.call(pid, {:perform_at, time, pool, fun})
+    pool
+    |> supervisor()
+    |> DynamicSupervisor.start_child(@name)
+    |> extract_pid()
+    |> GenServer.call({:perform_at, time, pool, fun})
   end
+
+  defp extract_pid({:ok, pid}), do: pid
+
+  defp supervisor(pool), do: OddJob.Supervisor.scheduler_sup_name(pool)
 
   @doc false
   @spec cancel_timer(reference) :: non_neg_integer | false
@@ -70,30 +72,54 @@ defmodule OddJob.Scheduler do
 
   @impl true
   def handle_call({:perform_after, timer, pool, fun}, _, state) do
-    timer_ref = Process.send_after(self(), {:perform, pool, fun}, timer)
-    register(timer_ref)
-    set_timeout(timer)
+    timer_ref =
+      timer
+      |> set_timer(:perform, pool, fun)
+      |> register()
+      |> set_timeout()
+
     {:reply, timer_ref, state}
   end
 
   @impl true
   def handle_call({:perform_at, time, pool, fun}, _, state) when is_struct(time, Time) do
-    time_now = Time.utc_now()
-    timer = Time.diff(time, time_now, :millisecond)
-    timer_ref = Process.send_after(self(), {:perform, pool, fun}, timer)
-    register(timer_ref)
-    set_timeout(timer)
+    timer_ref =
+      Time.utc_now()
+      |> Time.diff(time, :millisecond)
+      |> abs()
+      |> set_timer(:perform, pool, fun)
+      |> register()
+      |> set_timeout()
+
     {:reply, timer_ref, state}
   end
 
   @impl true
   def handle_call({:perform_at, time, pool, fun}, _, state) when is_struct(time, DateTime) do
-    time_now = DateTime.utc_now()
-    timer = DateTime.diff(time, time_now, :millisecond)
-    timer_ref = Process.send_after(self(), {:perform, pool, fun}, timer)
-    register(timer_ref)
-    set_timeout(timer)
+    timer_ref =
+      DateTime.utc_now()
+      |> DateTime.diff(time, :millisecond)
+      |> abs()
+      |> set_timer(:perform, pool, fun)
+      |> register()
+      |> set_timeout()
+
     {:reply, timer_ref, state}
+  end
+
+  defp set_timer(timer, dispatch, pool, fun) do
+    Process.send_after(self(), {dispatch, pool, fun}, timer)
+  end
+
+  defp register(timer_ref) do
+    Registry.register(@registry, timer_ref, :timer)
+    timer_ref
+  end
+
+  defp set_timeout(timer_ref) do
+    time_remaining = Process.read_timer(timer_ref)
+    Process.send_after(self(), :timeout, time_remaining + 1000)
+    timer_ref
   end
 
   @impl true
@@ -111,8 +137,4 @@ defmodule OddJob.Scheduler do
   def handle_info(:timeout, state) do
     {:stop, :timeout, state}
   end
-
-  defp register(timer_ref), do: Registry.register(@registry, timer_ref, :timer)
-  defp set_timeout(timer), do: Process.send_after(self(), :timeout, timer + 1000)
-  defp supervisor(pool), do: OddJob.Supervisor.scheduler_sup_name(pool)
 end

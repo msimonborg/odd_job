@@ -10,32 +10,6 @@ defmodule OddJob.Supervisor do
   use Supervisor
   import OddJob.Utils
 
-  @doc false
-  defmacro __using__(opts) do
-    keys = [:name, :pool_size, :max_restarts, :max_seconds]
-    {sup_opts, start_opts} = Keyword.split(opts, keys)
-
-    quote location: :keep, bind_quoted: [sup_opts: sup_opts, start_opts: start_opts] do
-      unless Module.has_attribute?(__MODULE__, :doc) do
-        @doc """
-        Returns a specification to start this module under a supervisor.
-        See `Supervisor`.
-        """
-      end
-
-      def child_spec(arg) when is_atom(arg), do: child_spec(name: arg)
-
-      def child_spec(arg) when is_list(arg) do
-        Keyword.merge([name: __MODULE__], unquote(Macro.escape(sup_opts)))
-        |> Keyword.merge(arg)
-        |> OddJob.child_spec()
-        |> Supervisor.child_spec(unquote(Macro.escape(start_opts)))
-      end
-
-      defoverridable child_spec: 1
-    end
-  end
-
   @type start_arg :: atom | [{:name, atom} | start_option]
   @type child_spec :: Supervisor.child_spec()
   @type start_option ::

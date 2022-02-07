@@ -22,6 +22,51 @@ defmodule OddJob do
   @doc since: "0.4.0"
   defguard is_enumerable(term) when is_list(term) or is_map(term)
 
+  @doc false
+  @doc since: "0.4.0"
+  defmacro __using__(opts) do
+    keys = [:name, :pool_size, :max_restarts, :max_seconds]
+    {sup_opts, start_opts} = Keyword.split(opts, keys)
+
+    quote location: :keep, bind_quoted: [sup_opts: sup_opts, start_opts: start_opts] do
+      unless Module.has_attribute?(__MODULE__, :doc) do
+        @doc """
+        Returns a specification to start this module under a supervisor.
+        See `Supervisor`.
+        """
+      end
+
+      def child_spec(arg) when is_atom(arg), do: child_spec(name: arg)
+
+      def child_spec(arg) when is_list(arg) do
+        spec =
+          Keyword.merge([name: __MODULE__], unquote(Macro.escape(sup_opts)))
+          |> Keyword.merge(arg)
+          |> OddJob.child_spec()
+
+        start =
+          spec.start
+          |> Tuple.delete_at(0)
+          |> Tuple.insert_at(0, __MODULE__)
+
+        opts = Keyword.merge([start: start], unquote(Macro.escape(start_opts)))
+
+        Supervisor.child_spec(spec, opts)
+      end
+
+      unless Module.has_attribute?(__MODULE__, :doc) do
+        @doc """
+        Starts an OddJob supervision tree linked to the current process.
+        See `OddJob.start_link/2`.
+        """
+      end
+
+      def start_link(name, opts), do: OddJob.start_link(name, opts)
+
+      defoverridable child_spec: 1, start_link: 2
+    end
+  end
+
   @doc """
   A macro for creating jobs with an expressive DSL.
 

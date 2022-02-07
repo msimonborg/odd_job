@@ -3,21 +3,21 @@
 ## v0.4.0-dev
 
 ### Changes
-- Different arguments for `OddJob.start_link` and `OddJob.child_spec`. `start_link/2` requires an atom as the
-first argument to name the pool, and an optional keyword list of config overrides. `child_spec/1` accepts
-an atom to name the pool *or* a keyword list of options that must contain a `:name` key, plus optional overrides.
+- Different arguments for `OddJob.child_spec`. Accepts an atom to name the pool *or* a keyword list of
+options that must contain a `:name` key, plus optional overrides.
 - Change `OddJob.supervisor_id` to `OddJob.pool_supervisor_name/1`
 - Change `OddJob.supervisor` to `OddJob.pool_supervisor/1`
 - Change `OddJob.pool_id` to `OddJob.pool_name/1`
 
 ### Additions
 - New functions `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs
-- New public function `OddJob.start_link/1` can be used to dynamically start OddJob pools
-- `use OddJob.Supervisor` to create module based job pools
+- New public function `OddJob.start_link/2` can be used to dynamically start OddJob pools
+- `use OddJob` to create module based job pools
 - Configuration options for `max_restarts` and `max_seconds`
 - Any pool can override the default config and have its own configuration
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec
-tuple: `{OddJob, name: :work, pool_size: 10}`
+tuple: `{OddJob, name: :work, pool_size: 10}`, or to `OddJob.start_link/2`, or to `use OddJob` for module
+based pools.
 
 ### Improvements
 - Every pool supervises its own proxy supervisor and scheduler supervisor to increase isolation between pools.

@@ -37,16 +37,18 @@ defmodule OddJob.Pool do
 
   @doc false
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: opts.id)
+    GenServer.start_link(__MODULE__, opts, name: opts[:id])
   end
 
   @doc false
   def child_spec(opts) do
-    %{id: opts.id, start: {OddJob.Pool, :start_link, [opts]}}
+    opts
+    |> super()
+    |> Supervisor.child_spec(id: opts[:id])
   end
 
   @doc false
-  @spec state(atom | pid | {atom, any} | {:via, atom, any}) :: t
+  @spec state(atom | pid) :: t
   def state(pool) do
     GenServer.call(pool, :state)
   end

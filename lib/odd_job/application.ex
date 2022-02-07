@@ -9,7 +9,6 @@ defmodule OddJob.Application do
         {Registry, name: OddJob.SchedulerRegistry, keys: :unique}
       ] ++ default_pool() ++ extra_pools()
 
-    # if Mix.env() == :dev, do: :observer.start()
     opts = [strategy: :one_for_one, name: OddJob.Supervisor]
     Supervisor.start_link(children, opts)
   end
@@ -34,6 +33,18 @@ defmodule OddJob.Application do
 
   defp extra_pools do
     extra_pools = Application.get_env(:odd_job, :extra_pools, [])
-    for pool <- extra_pools, do: {OddJob, pool}
+
+    for pool <- extra_pools do
+      start_arg =
+        case pool do
+          {name, opts} when is_atom(name) and is_list(opts) ->
+            Keyword.put(opts, :name, name)
+
+          name when is_atom(name) ->
+            name
+        end
+
+      {OddJob, start_arg}
+    end
   end
 end

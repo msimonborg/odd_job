@@ -112,13 +112,16 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> :work |> OddJob.child_spec()
-      %{id: :work_sup, start: {OddJob.Supervisor, :start_link, [[name: :work]]}, type: :supervisor}
+      iex> children = [OddJob.child_spec(:media)]
+      [%{id: :media_sup, start: {OddJob.Supervisor, :start_link, [:media, []]}, type: :supervisor}]
+      iex> {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
+      iex> OddJob.workers(:media) |> length()
+      5
 
-  Normally you would start an `OddJob` pool under a supervision tree and not call
-  `child_spec/1` directly.
+  Normally you would start an `OddJob` pool under a supervision tree with a child specification tuple
+  and not call `child_spec/1` directly.
 
-      children = [{OddJob, :work}]
+      children = [{OddJob, :media}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
   ## Arguments
@@ -126,48 +129,40 @@ defmodule OddJob do
   The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
   can be one of the following:
 
-    * `name` - An atom which will be the name of the pool.
+    * An atom which will be the name of the pool.
 
-    * `opts` - A keyword list of options.
+    * A keyword list of options. `:name` is a required key and will name the pool. The other available
+    options will override the default config and are detailed in `start_link/2`.
 
-    * `{name, opts}` - A two element tuple where `name` is an atom and `opts` is a keyword list of
-    options. If `opts` has a `:name` key it will be overridden by the first element of the tuple.
-
-  See `start_link/1` for more information on start arguments and options, and the `Supervisor` module for more
-  about child specs.
+  See the `Supervisor` module for more about child specs.
   """
   @doc since: "0.1.0"
-  @spec child_spec(start_arg | {atom, [start_option]}) :: child_spec
-  defdelegate child_spec(name), to: OddJob.Supervisor
+  @spec child_spec(start_arg) :: child_spec
+  defdelegate child_spec(start_arg), to: OddJob.Supervisor
 
   @doc """
   Starts an `OddJob` pool supervision tree linked to the current process.
 
   ## Arguments
 
-  The `start_arg` can be one of the following:
-
-    * `name` - An atom which will be the name of the pool. Use this option if you want your pool to assume
-    the default config options.
+    * `name` - An atom which will name the pool. This argument is required.
 
     * `opts` - A keyword list of options. These options will override the default config. The available
     options are:
 
-      * `:name` - an atom that will name the pool, and the only required key
-
-      * `:pool_size` - an integer, the number of concurrent workers in the pool. Defaults to 5 or your application's
+      * `pool_size: integer` - the number of concurrent workers in the pool. Defaults to 5 or your application's
       config value.
 
-      * `:max_restarts` - an integer, the number of worker restarts allowed in a given timeframe before all
+      * `max_restarts: integer` - the number of worker restarts allowed in a given timeframe before all
       of the workers are restarted. Set a higher number if your jobs have a high rate of expected failure.
       Defaults to 5 or your application's config value.
 
-      * `:max_seconds` - an integer, the timeframe in seconds in which `max_restarts` applies. Defaults to 3
+      * `max_seconds: integer` - the timeframe in seconds in which `max_restarts` applies. Defaults to 3
       or your application's config value. See `Supervisor` for more info on restart intensity options.
 
-  You can start an `OddJob` pool directly and dynamically:
+  You can start an `OddJob` pool directly and dynamically to start processing concurrent jobs:
 
-      iex> {:ok, _pid} = OddJob.start_link(name: :event, pool_size: 10)
+      iex> {:ok, _pid} = OddJob.start_link(:event, pool_size: 10)
       iex> OddJob.async_perform(:event, fn -> :do_something end) |> OddJob.await()
       :do_something
 
@@ -176,12 +171,12 @@ defmodule OddJob do
       children = [{OddJob, name: :event, pool_size: 10}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
-  The second element of the child spec tuple can be any of the `start_arg`s accepted by `start_link/1` or
-  `child_spec/1`. See `Supervisor` for more on starting supervision trees.
+  The second element of the child spec tuple must be one of the `start_arg`s accepted by `child_spec/1`.
+  See `Supervisor` for more on starting supervision trees.
   """
   @doc since: "0.4.0"
-  @spec start_link(start_arg) :: Supervisor.on_start()
-  defdelegate start_link(arg), to: OddJob.Supervisor
+  @spec start_link(atom, [start_option]) :: Supervisor.on_start()
+  defdelegate start_link(name, opts \\ []), to: OddJob.Supervisor
 
   @doc """
   Performs a fire and forget job.

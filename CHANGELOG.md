@@ -2,7 +2,12 @@
 
 ## v0.4.0-dev
 
-### Added
+### Changes
+- Different arguments for `OddJob.start_link` and `OddJob.child_spec`. `start_link/2` requires an atom as the
+first argument to name the pool, and an optional keyword list of config overrides. `child_spec/1` accepts
+an atom to name the pool *or* a keyword list of options that must contain a `:name` key, plus optional overrides.
+
+### Additions
 - New functions `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs
 - New public function `OddJob.start_link/1` can be used to dynamically start OddJob pools
 - Configuration options for `max_restarts` and `max_seconds`
@@ -10,7 +15,7 @@
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec
 tuple: `{OddJob, name: :work, pool_size: 10}`
 
-### Improved
+### Improvements
 - Every pool supervises its own proxy supervisor and scheduler supervisor to increase isolation between pools.
 - Better documentation about version history.
 - Better module documentation.

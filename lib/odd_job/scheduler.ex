@@ -11,6 +11,7 @@ defmodule OddJob.Scheduler do
   """
   @moduledoc since: "0.2.0"
 
+  @doc false
   use GenServer, restart: :temporary
   alias OddJob.Utils
 

@@ -20,7 +20,7 @@ defmodule OddJob.Pool.Worker do
 
   @doc false
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: :"#{opts.id}")
+    GenServer.start_link(__MODULE__, opts, name: opts[:id])
   end
 
   @impl true
@@ -33,7 +33,9 @@ defmodule OddJob.Pool.Worker do
 
   @doc false
   def child_spec(opts) do
-    %{id: opts.id, start: {OddJob.Pool.Worker, :start_link, [opts]}}
+    opts
+    |> super()
+    |> Supervisor.child_spec(id: opts[:id])
   end
 
   @impl true

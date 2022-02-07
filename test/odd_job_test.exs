@@ -15,23 +15,14 @@ defmodule OddJobTest do
     test "returns a valid child spec for a pool supervision tree" do
       assert child_spec(:spec_test) == %{
                id: :spec_test_sup,
-               start: {OddJob.Supervisor, :start_link, [[name: :spec_test]]},
-               type: :supervisor
-             }
-
-      assert child_spec({:spec_test, pool_size: 10, max_restarts: 20}) == %{
-               id: :spec_test_sup,
-               start:
-                 {OddJob.Supervisor, :start_link,
-                  [[name: :spec_test, pool_size: 10, max_restarts: 20]]},
+               start: {OddJob.Supervisor, :start_link, [:spec_test, []]},
                type: :supervisor
              }
 
       assert child_spec(name: :spec_test, pool_size: 10, max_restarts: 20) == %{
                id: :spec_test_sup,
                start:
-                 {OddJob.Supervisor, :start_link,
-                  [[name: :spec_test, pool_size: 10, max_restarts: 20]]},
+                 {OddJob.Supervisor, :start_link, [:spec_test, [pool_size: 10, max_restarts: 20]]},
                type: :supervisor
              }
     end
@@ -53,7 +44,7 @@ defmodule OddJobTest do
     end
 
     test "accepts options for config overrides" do
-      {:ok, _} = start_link(name: :option_test, pool_size: 50)
+      {:ok, _} = start_link(:option_test, pool_size: 50)
       assert length(workers(:option_test)) == 50
     end
   end
@@ -195,7 +186,7 @@ defmodule OddJobTest do
     end
 
     test "can perform a massive number of async jobs" do
-      {:ok, pid} = OddJob.start_link(name: :massive_job, pool_size: 1000)
+      {:ok, pid} = OddJob.start_link(:massive_job, pool_size: 1000)
 
       result =
         :massive_job

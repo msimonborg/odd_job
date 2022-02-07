@@ -8,6 +8,7 @@ defmodule OddJob.Pool.Supervisor do
     Supervisor.start_link(__MODULE__, args, name: id(name))
   end
 
+  @impl Supervisor
   def init([name, opts]) do
     config = Application.get_all_env(:odd_job)
     default_pool_size = Keyword.get(config, :pool_size, 5)

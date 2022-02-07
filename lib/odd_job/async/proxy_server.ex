@@ -33,30 +33,28 @@ defmodule OddJob.Async.ProxyServer do
     GenServer.start_link(__MODULE__, [])
   end
 
-  @impl true
+  @impl GenServer
   @spec init(any) :: {:ok, any}
   def init(_init_arg) do
     {:ok, %__MODULE__{}}
   end
 
-  @impl true
+  @impl GenServer
   def handle_cast({:job, job}, state), do: {:noreply, %{state | job: job}}
 
-  @impl true
+  @impl GenServer
   def handle_call({:run, pool, job}, _from, state) do
     GenServer.cast(pool, {:perform, job})
 
     {:reply, job, %{state | job: job}}
   end
 
-  @impl true
   def handle_call(:link_and_monitor, {from, _}, state) do
     Process.link(from)
     ref = Process.monitor(from)
     {:reply, :ok, %{state | worker_ref: ref}}
   end
 
-  @impl true
   def handle_call({:complete, job}, {from, _}, %{worker_ref: ref} = state) do
     Process.unlink(from)
     Process.demonitor(ref, [:flush])
@@ -64,7 +62,7 @@ defmodule OddJob.Async.ProxyServer do
     {:stop, :normal, :ok, state}
   end
 
-  @impl true
+  @impl GenServer
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{worker_ref: worker_ref} = state)
       when ref == worker_ref do
     {:stop, reason, state}

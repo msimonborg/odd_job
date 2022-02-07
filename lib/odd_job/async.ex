@@ -145,9 +145,6 @@ defmodule OddJob.Async do
     end)
   end
 
-  # The following private functions were taken from the Task module in Elixir's standard library,
-  # in the hope that exit behavior mimics that of the Task module.
-
   defp reason(:noconnection, proc), do: {:nodedown, monitor_node(proc)}
   defp reason(reason, _), do: reason
 

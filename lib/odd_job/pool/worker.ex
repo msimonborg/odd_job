@@ -23,7 +23,7 @@ defmodule OddJob.Pool.Worker do
     GenServer.start_link(__MODULE__, opts, name: opts[:id])
   end
 
-  @impl true
+  @impl GenServer
   def init(opts) do
     state = struct(__MODULE__, opts)
     Process.monitor(state.pool_id)
@@ -38,7 +38,7 @@ defmodule OddJob.Pool.Worker do
     |> Supervisor.child_spec(id: opts[:id])
   end
 
-  @impl true
+  @impl GenServer
   def handle_cast({:do_perform, %{async: true, proxy: proxy} = job}, %{pool_id: pool_id} = state) do
     GenServer.call(proxy, :link_and_monitor)
     job = do_perform(pool_id, job)
@@ -46,7 +46,6 @@ defmodule OddJob.Pool.Worker do
     {:noreply, state}
   end
 
-  @impl true
   def handle_cast({:do_perform, job}, %{pool_id: pool_id} = state) do
     do_perform(pool_id, job)
     {:noreply, state}
@@ -58,7 +57,7 @@ defmodule OddJob.Pool.Worker do
     %{job | results: results}
   end
 
-  @impl true
+  @impl GenServer
   def handle_info({:DOWN, _ref, :process, {proc, _}, _reason}, %{pool_id: pool_id} = state) do
     if proc == pool_id do
       Process.monitor(pool_id)

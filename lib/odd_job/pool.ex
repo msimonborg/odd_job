@@ -59,20 +59,19 @@ defmodule OddJob.Pool do
     GenServer.cast(pool, {:monitor, worker})
   end
 
-  @impl true
+  @impl GenServer
   @spec init(any) :: {:ok, t}
   def init(opts) do
     state = struct(__MODULE__, opts)
     {:ok, state}
   end
 
-  @impl true
+  @impl GenServer
   def handle_cast({:monitor, pid}, %Pool{workers: workers, jobs: []} = state) do
     Process.monitor(pid)
     {:noreply, %Pool{state | workers: workers ++ [pid]}}
   end
 
-  @impl true
   def handle_cast(
         {:monitor, pid},
         %Pool{workers: workers, jobs: jobs, assigned: assigned} = state
@@ -85,7 +84,6 @@ defmodule OddJob.Pool do
     {:noreply, %Pool{state | workers: workers, assigned: assigned, jobs: rest}}
   end
 
-  @impl true
   def handle_cast({:perform, job}, state) do
     state = do_perform(job, state)
     {:noreply, state}
@@ -127,24 +125,22 @@ defmodule OddJob.Pool do
 
   defp available_workers(workers, assigned), do: workers -- assigned
 
-  @impl true
+  @impl GenServer
   def handle_call(:complete, {pid, _}, %Pool{assigned: assigned, jobs: []} = state) do
     {:reply, :ok, %Pool{state | assigned: assigned -- [pid]}}
   end
 
-  @impl true
   def handle_call(:complete, {worker, _}, %Pool{jobs: jobs} = state) do
     [new_job | rest] = jobs
     GenServer.cast(worker, {:do_perform, new_job})
     {:reply, :ok, %Pool{state | jobs: rest}}
   end
 
-  @impl true
   def handle_call(:state, _from, state) do
     {:reply, state, state}
   end
 
-  @impl true
+  @impl GenServer
   def handle_info(
         {:DOWN, ref, :process, pid, _reason},
         %Pool{workers: workers, assigned: assigned} = state

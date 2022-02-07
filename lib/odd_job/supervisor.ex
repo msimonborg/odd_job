@@ -23,7 +23,7 @@ defmodule OddJob.Supervisor do
     Supervisor.start_link(__MODULE__, [name, opts], name: id(name))
   end
 
-  @impl true
+  @impl Supervisor
   def init([name, _opts] = args) do
     pool_opts = [id: pool_id(name), pool: name]
 
@@ -55,9 +55,11 @@ defmodule OddJob.Supervisor do
   @doc false
   @spec pool_id(atom | binary) :: atom
   def pool_id(name) when is_atom(name) or is_binary(name), do: :"#{name}_pool"
+
   @doc false
   @spec proxy_sup_name(any) :: atom
   def proxy_sup_name(name), do: :"#{name}_proxy_sup"
+
   @doc false
   @spec scheduler_sup_name(any) :: atom
   def scheduler_sup_name(name), do: :"#{name}_scheduler_sup"

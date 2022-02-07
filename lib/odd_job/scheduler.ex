@@ -64,13 +64,13 @@ defmodule OddJob.Scheduler do
 
   defp lookup(timer_ref), do: Registry.lookup(@registry, timer_ref)
 
-  @impl true
+  @impl GenServer
   @spec init([]) :: {:ok, []}
   def init([]) do
     {:ok, []}
   end
 
-  @impl true
+  @impl GenServer
   def handle_call({:perform_after, timer, pool, fun}, _, state) do
     timer_ref =
       timer
@@ -81,7 +81,6 @@ defmodule OddJob.Scheduler do
     {:reply, timer_ref, state}
   end
 
-  @impl true
   def handle_call({:perform_at, time, pool, fun}, _, state) when is_struct(time, Time) do
     timer_ref =
       Time.utc_now()
@@ -94,7 +93,6 @@ defmodule OddJob.Scheduler do
     {:reply, timer_ref, state}
   end
 
-  @impl true
   def handle_call({:perform_at, time, pool, fun}, _, state) when is_struct(time, DateTime) do
     timer_ref =
       DateTime.utc_now()
@@ -122,18 +120,17 @@ defmodule OddJob.Scheduler do
     timer_ref
   end
 
-  @impl true
+  @impl GenServer
   def handle_cast(:abort, state) do
     {:stop, :normal, state}
   end
 
-  @impl true
+  @impl GenServer
   def handle_info({:perform, pool, fun}, state) do
     OddJob.perform(pool, fun)
     {:stop, :normal, state}
   end
 
-  @impl true
   def handle_info(:timeout, state) do
     {:stop, :timeout, state}
   end

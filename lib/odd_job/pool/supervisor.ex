@@ -3,9 +3,10 @@ defmodule OddJob.Pool.Supervisor do
   @moduledoc since: "0.3.0"
 
   use Supervisor
+  alias OddJob.Utils
 
   def start_link([name, _opts] = args) do
-    Supervisor.start_link(__MODULE__, args, name: id(name))
+    Supervisor.start_link(__MODULE__, args, name: Utils.pool_supervisor_name(name))
   end
 
   @impl Supervisor
@@ -25,14 +26,11 @@ defmodule OddJob.Pool.Supervisor do
     Supervisor.init(children, opts)
   end
 
-  @spec id(atom | binary) :: atom
-  def id(name) when is_atom(name) or is_binary(name), do: :"#{name}_pool_worker_sup"
-
   defp workers(name, pool_size) do
     for num <- 1..pool_size do
-      id = :"#{name}_worker_#{num}"
-      pool_id = OddJob.pool_id(name)
-      {OddJob.Pool.Worker, id: id, pool: name, pool_id: pool_id}
+      id = Utils.pool_worker_name(name, num)
+      pool_name = OddJob.Utils.pool_name(name)
+      {OddJob.Pool.Worker, id: id, pool: name, pool_id: pool_name}
     end
   end
 end

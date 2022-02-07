@@ -196,7 +196,7 @@ defmodule OddJob do
     job = %Job{function: fun, owner: self()}
 
     pool
-    |> pool_id()
+    |> pool_name()
     |> GenServer.cast({:perform, job})
   end
 
@@ -221,7 +221,7 @@ defmodule OddJob do
     jobs = for item <- collection, do: %Job{function: fn -> fun.(item) end, owner: self()}
 
     pool
-    |> pool_id()
+    |> pool_name()
     |> GenServer.cast({:perform_many, jobs})
   end
 
@@ -239,9 +239,7 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec async_perform(atom, function) :: job
   def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
-    pool
-    |> pool_id()
-    |> Async.perform(fun)
+    Async.perform(pool, fun)
   end
 
   @doc """
@@ -260,9 +258,7 @@ defmodule OddJob do
   @spec async_perform_many(atom, list | map, function) :: [job]
   def async_perform_many(pool, collection, fun)
       when is_atom(pool) and is_enumerable(collection) and is_function(fun, 1) do
-    pool
-    |> pool_id()
-    |> Async.perform_many(collection, fun)
+    Async.perform_many(pool, collection, fun)
   end
 
   @doc """
@@ -406,28 +402,28 @@ defmodule OddJob do
   def pool(pool) when is_atom(pool) do
     state =
       pool
-      |> pool_id()
+      |> pool_name()
       |> Pool.state()
 
     pid =
       pool
-      |> pool_id()
+      |> pool_name()
       |> GenServer.whereis()
 
     {pid, state}
   end
 
   @doc """
-  Returns the ID of the job `pool`.
+  Returns the name of the job `pool`.
 
   ## Examples
 
-      iex> OddJob.pool_id(:job)
+      iex> OddJob.pool_name(:job)
       :job_pool
   """
-  @doc since: "0.1.0"
-  @spec pool_id(atom) :: atom
-  defdelegate pool_id(pool), to: OddJob.Supervisor
+  @doc since: "0.4.0"
+  @spec pool_name(atom) :: atom
+  defdelegate pool_name(pool), to: OddJob.Utils
 
   @doc """
   Returns the pid of the job `pool`'s supervisor.
@@ -438,14 +434,14 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.supervisor(:job)
+      OddJob.pool_supervisor(:job)
       #=> #PID<0.239.0>
   """
-  @doc since: "0.1.0"
-  @spec supervisor(atom) :: pid
-  def supervisor(pool) when is_atom(pool) do
+  @doc since: "0.4.0"
+  @spec pool_supervisor(atom) :: pid
+  def pool_supervisor(pool) when is_atom(pool) do
     pool
-    |> supervisor_id()
+    |> pool_supervisor_name()
     |> GenServer.whereis()
   end
 
@@ -454,12 +450,12 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.supervisor_id(:job)
+      iex> OddJob.pool_supervisor_name(:job)
       :job_pool_worker_sup
   """
-  @doc since: "0.1.0"
-  @spec supervisor_id(atom) :: atom
-  defdelegate supervisor_id(pool), to: OddJob.Pool.Supervisor, as: :id
+  @doc since: "0.4.0"
+  @spec pool_supervisor_name(atom) :: atom
+  defdelegate pool_supervisor_name(pool), to: OddJob.Utils
 
   @doc """
   Returns a list of `pid`s for the specified worker pool.

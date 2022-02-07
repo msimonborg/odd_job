@@ -2,6 +2,7 @@ defmodule OddJobTest do
   use ExUnit.Case, async: false
   use ExUnitReceiver, as: :stash
   import OddJob
+  alias OddJob.Utils
   doctest OddJob
 
   setup do
@@ -14,13 +15,13 @@ defmodule OddJobTest do
   describe "child_spec/1" do
     test "returns a valid child spec for a pool supervision tree" do
       assert child_spec(:spec_test) == %{
-               id: :spec_test_sup,
+               id: Utils.supervisor_name(:spec_test),
                start: {OddJob.Supervisor, :start_link, [:spec_test, []]},
                type: :supervisor
              }
 
       assert child_spec(name: :spec_test, pool_size: 10, max_restarts: 20) == %{
-               id: :spec_test_sup,
+               id: Utils.supervisor_name(:spec_test),
                start:
                  {OddJob.Supervisor, :start_link, [:spec_test, [pool_size: 10, max_restarts: 20]]},
                type: :supervisor
@@ -31,7 +32,7 @@ defmodule OddJobTest do
   describe "start_link/1" do
     test "dynamically starts an OddJob pool supervision tree" do
       {:ok, pid} = start_link(:start_link)
-      assert pid == GenServer.whereis(:start_link_sup)
+      assert pid == GenServer.whereis(Utils.supervisor_name(:start_link))
       caller = self()
       perform(:start_link, fn -> send(caller, "hello from start_link") end)
 
@@ -342,12 +343,12 @@ defmodule OddJobTest do
     end
   end
 
-  describe "supervisor/1" do
+  describe "pool_supervisor/1" do
     test "returns the pool supervisor's pid" do
-      pid = supervisor(:work)
-      supervisor_id = supervisor_id(:work)
+      pid = pool_supervisor(:work)
+      supervisor_name = pool_supervisor_name(:work)
       assert is_pid(pid)
-      assert pid == GenServer.whereis(supervisor_id)
+      assert pid == GenServer.whereis(supervisor_name)
     end
   end
 

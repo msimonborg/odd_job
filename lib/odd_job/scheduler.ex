@@ -31,7 +31,7 @@ defmodule OddJob.Scheduler do
   @spec perform_after(integer, atom, function) :: reference
   def perform_after(timer, pool, fun) do
     pool
-    |> supervisor()
+    |> Utils.scheduler_sup_name()
     |> DynamicSupervisor.start_child(@name)
     |> Utils.extract_pid()
     |> GenServer.call({:perform_after, timer, pool, fun})
@@ -41,13 +41,11 @@ defmodule OddJob.Scheduler do
   @spec perform_at(time, atom, function) :: reference
   def perform_at(time, pool, fun) do
     pool
-    |> supervisor()
+    |> Utils.scheduler_sup_name()
     |> DynamicSupervisor.start_child(@name)
     |> Utils.extract_pid()
     |> GenServer.call({:perform_at, time, pool, fun})
   end
-
-  defp supervisor(pool), do: OddJob.Supervisor.scheduler_sup_name(pool)
 
   @doc false
   @spec cancel_timer(reference) :: non_neg_integer | false

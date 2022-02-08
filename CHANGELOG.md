@@ -3,8 +3,7 @@
 ## v0.4.0-dev
 
 ### Changes
-- Different arguments for `OddJob.child_spec`. Accepts an atom to name the pool *or* a keyword list of
-options that must contain a `:name` key, plus optional overrides.
+- Different arguments for `OddJob.child_spec`. Accepts an atom to name the pool *or* a keyword list of options that must contain a `:name` key, plus optional overrides.
 - Change `OddJob.supervisor_id` to `OddJob.pool_supervisor_name/1`
 - Change `OddJob.supervisor` to `OddJob.pool_supervisor/1`
 - Change `OddJob.pool_id` to `OddJob.pool_name/1`
@@ -16,10 +15,10 @@ options that must contain a `:name` key, plus optional overrides.
 - Configuration options for `max_restarts` and `max_seconds`
 - Any pool can override the default config and have its own configuration
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec
-tuple: `{OddJob, name: :work, pool_size: 10}`, or to `OddJob.start_link/2`, or to `use OddJob` for module
-based pools.
+tuple: `{OddJob, name: :work, pool_size: 10}`, or to `OddJob.start_link/2`, or to `use OddJob` for module based pools.
 
 ### Improvements
+- Use `:via` process naming to allow any term to be used for naming pools, and to avoid dynamic generation of atoms.
 - Every pool supervises its own proxy supervisor and scheduler supervisor to increase isolation between pools.
 - Better documentation about version history.
 - Better module documentation.

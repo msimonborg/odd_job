@@ -73,6 +73,9 @@ defmodule OddJob.MixProject do
         "Public API": [
           OddJob
         ],
+        "Internal Helpers": [
+          OddJob.Utils
+        ],
         "Processes and Types": [
           OddJob.Async.ProxyServer,
           OddJob.Job,

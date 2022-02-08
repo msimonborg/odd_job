@@ -10,24 +10,28 @@ defmodule OddJob.Pool.Worker do
   @moduledoc since: "0.1.0"
   use GenServer
 
-  defstruct [:id, :pool, :pool_id]
+  alias OddJob.{Registry, Utils}
+
+  defstruct [:id, :pool, :pool_pid]
 
   @type t :: %__MODULE__{
           id: atom,
           pool: atom,
-          pool_id: atom
+          pool_pid: pid
         }
 
   @doc false
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: opts[:id])
+    name = Registry.via(opts[:pool], opts[:id])
+    GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   @impl GenServer
   def init(opts) do
-    state = struct(__MODULE__, opts)
-    Process.monitor(state.pool_id)
-    OddJob.Pool.monitor(state.pool_id, self())
+    pool_pid = Utils.pool_name(opts[:pool]) |> GenServer.whereis()
+    state = struct(__MODULE__, opts ++ [pool_pid: pool_pid])
+    Process.monitor(pool_pid)
+    OddJob.Pool.monitor(pool_pid, self())
     {:ok, state}
   end
 
@@ -39,31 +43,34 @@ defmodule OddJob.Pool.Worker do
   end
 
   @impl GenServer
-  def handle_cast({:do_perform, %{async: true, proxy: proxy} = job}, %{pool_id: pool_id} = state) do
+  def handle_cast({:do_perform, %{async: true, proxy: proxy} = job}, %{pool: pool} = state) do
     GenServer.call(proxy, :link_and_monitor)
-    job = do_perform(pool_id, job)
+    job = do_perform(pool, job)
     GenServer.call(proxy, {:complete, job})
     {:noreply, state}
   end
 
-  def handle_cast({:do_perform, job}, %{pool_id: pool_id} = state) do
-    do_perform(pool_id, job)
+  def handle_cast({:do_perform, job}, %{pool: pool} = state) do
+    do_perform(pool, job)
     {:noreply, state}
   end
 
-  defp do_perform(pool_id, job) do
+  defp do_perform(pool, job) do
     results = job.function.()
-    GenServer.call(pool_id, :complete)
+
+    Utils.pool_name(pool)
+    |> GenServer.call(:complete)
+
     %{job | results: results}
   end
 
   @impl GenServer
-  def handle_info({:DOWN, _ref, :process, {proc, _}, _reason}, %{pool_id: pool_id} = state) do
-    if proc == pool_id do
-      Process.monitor(pool_id)
-      OddJob.Pool.monitor(pool_id, self())
-    end
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{pool_pid: pool_pid} = state)
+      when pid == pool_pid do
+    pool_pid = Utils.pool_name(state.pool) |> GenServer.whereis()
+    Process.monitor(pool_pid)
+    OddJob.Pool.monitor(pool_pid, self())
 
-    {:noreply, state}
+    {:noreply, %{state | pool_pid: pool_pid}}
   end
 end

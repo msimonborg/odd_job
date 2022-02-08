@@ -15,13 +15,13 @@ defmodule OddJobTest do
   describe "child_spec/1" do
     test "returns a valid child spec for a pool supervision tree" do
       assert child_spec(:spec_test) == %{
-               id: Utils.supervisor_name(:spec_test),
+               id: {OddJob, :spec_test},
                start: {OddJob.Supervisor, :start_link, [:spec_test, []]},
                type: :supervisor
              }
 
       assert child_spec(name: :spec_test, pool_size: 10, max_restarts: 20) == %{
-               id: Utils.supervisor_name(:spec_test),
+               id: {OddJob, :spec_test},
                start:
                  {OddJob.Supervisor, :start_link, [:spec_test, [pool_size: 10, max_restarts: 20]]},
                type: :supervisor

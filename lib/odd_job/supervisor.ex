@@ -8,7 +8,8 @@ defmodule OddJob.Supervisor do
   """
   @moduledoc since: "0.1.0"
   use Supervisor
-  import OddJob.Utils
+
+  alias OddJob.Utils
 
   @type start_arg :: atom | [{:name, atom} | start_option]
   @type child_spec :: Supervisor.child_spec()
@@ -21,18 +22,15 @@ defmodule OddJob.Supervisor do
   @spec start_link(atom, [start_option]) :: Supervisor.on_start()
   def start_link(name, opts \\ []) when is_atom(name) and is_list(opts) do
     opts = Keyword.delete(opts, :name)
-    name = to_snakecase(name)
-    Supervisor.start_link(__MODULE__, [name, opts], name: supervisor_name(name))
+    Supervisor.start_link(__MODULE__, [name, opts], name: Utils.supervisor_name(name))
   end
 
   @impl Supervisor
   def init([name, _opts] = args) do
-    pool_opts = [id: pool_name(name), pool: name]
-
     children = [
-      {OddJob.Async.ProxySupervisor, proxy_sup_name(name)},
-      {OddJob.Scheduler.Supervisor, scheduler_sup_name(name)},
-      {OddJob.Pool, pool_opts},
+      {OddJob.Async.ProxySupervisor, Utils.proxy_sup_name(name)},
+      {OddJob.Scheduler.Supervisor, Utils.scheduler_sup_name(name)},
+      {OddJob.Pool, name},
       {OddJob.Pool.Supervisor, args}
     ]
 
@@ -45,12 +43,11 @@ defmodule OddJob.Supervisor do
 
   def child_spec(opts) when is_list(opts) do
     {name, opts} = Keyword.pop!(opts, :name)
-    name = to_snakecase(name)
 
     opts
     |> super()
     |> Supervisor.child_spec(
-      id: supervisor_name(name),
+      id: {OddJob, name},
       start: {__MODULE__, :start_link, [name, opts]}
     )
   end

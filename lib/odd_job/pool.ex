@@ -8,11 +8,10 @@ defmodule OddJob.Pool do
   """
   @moduledoc since: "0.3.0"
   use GenServer
-  alias OddJob.Job
-  alias OddJob.Pool
+  alias OddJob.{Job, Pool, Utils}
 
   @spec __struct__ :: OddJob.Pool.t()
-  defstruct [:id, :pool, workers: [], assigned: [], jobs: []]
+  defstruct [:pool, workers: [], assigned: [], jobs: []]
 
   @typedoc """
   The `OddJob.Pool` struct holds the state of the job pool.
@@ -26,7 +25,6 @@ defmodule OddJob.Pool do
   """
   @typedoc since: "0.3.0"
   @type t :: %__MODULE__{
-          id: atom,
           pool: atom,
           workers: [pid],
           assigned: [pid],
@@ -36,33 +34,30 @@ defmodule OddJob.Pool do
   @type job :: Job.t()
 
   @doc false
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: opts[:id])
-  end
-
-  @doc false
-  def child_spec(opts) do
-    opts
-    |> super()
-    |> Supervisor.child_spec(id: opts[:id])
+  def start_link(pool) do
+    GenServer.start_link(__MODULE__, pool, name: Utils.pool_name(pool))
   end
 
   @doc false
   @spec state(atom | pid) :: t
   def state(pool) do
-    GenServer.call(pool, :state)
+    Utils.pool_name(pool)
+    |> GenServer.call(:state)
   end
 
   @doc false
-  @spec monitor(atom | pid, atom | pid) :: :ok
+  @spec monitor(atom | pid, pid) :: :ok
+  def monitor(pool, worker) when is_pid(pool), do: GenServer.cast(pool, {:monitor, worker})
+
   def monitor(pool, worker) do
-    GenServer.cast(pool, {:monitor, worker})
+    Utils.pool_name(pool)
+    |> GenServer.cast({:monitor, worker})
   end
 
   @impl GenServer
-  @spec init(any) :: {:ok, t}
-  def init(opts) do
-    state = struct(__MODULE__, opts)
+  @spec init(atom) :: {:ok, t}
+  def init(pool) do
+    state = struct(__MODULE__, pool: pool)
     {:ok, state}
   end
 

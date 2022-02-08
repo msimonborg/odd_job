@@ -10,10 +10,11 @@ defmodule OddJob do
 
   @moduledoc since: "0.1.0"
 
-  alias OddJob.{Async, Job, Pool, Scheduler}
+  alias OddJob.{Async, Job, Pool, Registry, Scheduler}
 
   @type job :: Job.t()
   @type pool :: Pool.t()
+  @type name :: Registry.name()
   @type start_arg :: OddJob.Supervisor.start_arg()
   @type start_option :: OddJob.Supervisor.start_option()
   @type child_spec :: OddJob.Supervisor.child_spec()
@@ -158,7 +159,7 @@ defmodule OddJob do
   ## Examples
 
       iex> children = [OddJob.child_spec(:media)]
-      [%{id: :media_sup, start: {OddJob.Supervisor, :start_link, [:media, []]}, type: :supervisor}]
+      [%{id: {OddJob, :media}, start: {OddJob.Supervisor, :start_link, [:media, []]}, type: :supervisor}]
       iex> {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
       iex> OddJob.workers(:media) |> length()
       5
@@ -436,19 +437,16 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> {pid, %OddJob.Pool{id: id}} = OddJob.pool(:job)
+      iex> {pid, %OddJob.Pool{pool: pool}} = OddJob.pool(:job)
       iex> is_pid(pid)
       true
-      iex> id
-      :job_pool
+      iex> pool
+      :job
   """
   @doc since: "0.1.0"
   @spec pool(atom) :: {pid, pool}
   def pool(pool) when is_atom(pool) do
-    state =
-      pool
-      |> pool_name()
-      |> Pool.state()
+    state = Pool.state(pool)
 
     pid =
       pool
@@ -459,15 +457,15 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the name of the job `pool`.
+  Returns the registered name of the job `pool` process.
 
   ## Examples
 
       iex> OddJob.pool_name(:job)
-      :job_pool
+      {:via, Registry, {OddJob.Registry, {:job, "pool"}}}
   """
   @doc since: "0.4.0"
-  @spec pool_name(atom) :: atom
+  @spec pool_name(atom) :: name
   defdelegate pool_name(pool), to: OddJob.Utils
 
   @doc """
@@ -491,15 +489,15 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the ID of the job `pool`'s worker supervisor.
+  Returns the registered name of the job `pool`'s worker supervisor.
 
   ## Examples
 
       iex> OddJob.pool_supervisor_name(:job)
-      :job_pool_worker_sup
+      {:via, Registry, {OddJob.Registry, {:job, "pool_sup"}}}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor_name(atom) :: atom
+  @spec pool_supervisor_name(atom) :: name
   defdelegate pool_supervisor_name(pool), to: OddJob.Utils
 
   @doc """

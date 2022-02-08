@@ -13,6 +13,7 @@ defmodule OddJob.Scheduler do
 
   @doc false
   use GenServer, restart: :temporary
+
   alias OddJob.Utils
 
   @name __MODULE__

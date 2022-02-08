@@ -28,9 +28,8 @@ defmodule OddJob.Pool.Supervisor do
 
   defp workers(name, pool_size) do
     for num <- 1..pool_size do
-      id = Utils.pool_worker_name(name, num)
-      pool_name = OddJob.Utils.pool_name(name)
-      {OddJob.Pool.Worker, id: id, pool: name, pool_id: pool_name}
+      id = "#{name}_worker_#{num}"
+      {OddJob.Pool.Worker, id: id, pool: name}
     end
   end
 end

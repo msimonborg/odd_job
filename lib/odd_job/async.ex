@@ -2,7 +2,6 @@ defmodule OddJob.Async do
   @moduledoc false
   @moduledoc since: "0.1.0"
   alias OddJob.{Job, Utils}
-  import OddJob.Utils, only: [pool_name: 1, proxy_sup_name: 1]
 
   @type job :: OddJob.Job.t()
 
@@ -11,7 +10,7 @@ defmodule OddJob.Async do
   @spec perform(atom, fun) :: job
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     pool
-    |> proxy_sup_name()
+    |> Utils.proxy_sup_name()
     |> DynamicSupervisor.start_child(@server)
     |> Utils.extract_pid()
     |> Utils.link_and_monitor()
@@ -19,12 +18,17 @@ defmodule OddJob.Async do
     |> run_proxy_with_job(pool)
   end
 
+  @spec run_proxy_with_job(job, atom) :: job
+  defp run_proxy_with_job(job, pool) do
+    GenServer.call(job.proxy, {:run, pool, job})
+  end
+
   @spec perform_many(atom, list | map, function) :: [job]
   def perform_many(pool, collection, fun) do
     jobs =
       for item <- collection do
         pool
-        |> proxy_sup_name()
+        |> Utils.proxy_sup_name()
         |> DynamicSupervisor.start_child(@server)
         |> Utils.extract_pid()
         |> Utils.link_and_monitor()
@@ -32,13 +36,10 @@ defmodule OddJob.Async do
         |> send_job_to_proxy()
       end
 
-    GenServer.cast(pool_name(pool), {:perform_many, jobs})
-    jobs
-  end
+    Utils.pool_name(pool)
+    |> GenServer.cast({:perform_many, jobs})
 
-  @spec run_proxy_with_job(job, atom) :: job
-  defp run_proxy_with_job(job, pool) do
-    GenServer.call(job.proxy, {:run, pool_name(pool), job})
+    jobs
   end
 
   @spec build_job({pid, reference}, function) :: job

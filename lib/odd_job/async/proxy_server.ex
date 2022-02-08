@@ -18,6 +18,8 @@ defmodule OddJob.Async.ProxyServer do
   @doc false
   use GenServer, restart: :temporary
 
+  alias OddJob.Utils
+
   defstruct [:worker_ref, :job]
 
   @type t :: %__MODULE__{
@@ -44,7 +46,8 @@ defmodule OddJob.Async.ProxyServer do
 
   @impl GenServer
   def handle_call({:run, pool, job}, _from, state) do
-    GenServer.cast(pool, {:perform, job})
+    Utils.pool_name(pool)
+    |> GenServer.cast({:perform, job})
 
     {:reply, job, %{state | job: job}}
   end

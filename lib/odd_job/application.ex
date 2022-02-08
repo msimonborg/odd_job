@@ -1,5 +1,7 @@
 defmodule OddJob.Application do
   @moduledoc false
+  @moduledoc since: "0.4.0"
+
   use Application
 
   @impl Application

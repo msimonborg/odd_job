@@ -7,6 +7,7 @@ defmodule OddJob.Async do
 
   @server OddJob.Async.ProxyServer
 
+  @doc since: "0.1.0"
   @spec perform(atom, fun) :: job
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     pool

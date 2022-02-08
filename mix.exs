@@ -78,6 +78,7 @@ defmodule OddJob.MixProject do
           OddJob.Job,
           OddJob.Pool,
           OddJob.Pool.Worker,
+          OddJob.Registry,
           OddJob.Scheduler,
           OddJob.Supervisor
         ]

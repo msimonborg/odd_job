@@ -3,6 +3,7 @@ defmodule OddJob.Job do
   The OddJob.Job struct holds all of the useful information about a job.
   """
   @moduledoc since: "0.1.0"
+
   @spec __struct__ :: OddJob.Job.t()
   defstruct [:ref, :owner, :function, :results, :proxy, async: false]
 

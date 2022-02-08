@@ -7,6 +7,7 @@ defmodule OddJob.Pool do
   become available.
   """
   @moduledoc since: "0.3.0"
+
   use GenServer
   alias OddJob.{Job, Pool, Utils}
 

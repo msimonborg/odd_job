@@ -1,6 +1,7 @@
 defmodule OddJob.RegistryTest do
   use ExUnit.Case
   import OddJob.Registry
+  doctest OddJob.Registry
 
   describe "via/2" do
     test "returns a name suitable for use in :via registration" do

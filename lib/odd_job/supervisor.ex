@@ -11,7 +11,7 @@ defmodule OddJob.Supervisor do
 
   alias OddJob.Utils
 
-  @type start_arg :: atom | [{:name, atom} | start_option]
+  @type start_arg :: term | [{:name, term} | start_option]
   @type child_spec :: Supervisor.child_spec()
   @type start_option ::
           {:pool_size, non_neg_integer}
@@ -19,8 +19,8 @@ defmodule OddJob.Supervisor do
           | {:max_seconds, non_neg_integer}
 
   @doc false
-  @spec start_link(atom, [start_option]) :: Supervisor.on_start()
-  def start_link(name, opts \\ []) when is_atom(name) and is_list(opts) do
+  @spec start_link(term, [start_option]) :: Supervisor.on_start()
+  def start_link(name, opts \\ []) when is_list(opts) do
     opts = Keyword.delete(opts, :name)
     Supervisor.start_link(__MODULE__, [name, opts], name: Utils.supervisor_name(name))
   end
@@ -28,8 +28,8 @@ defmodule OddJob.Supervisor do
   @impl Supervisor
   def init([name, _opts] = args) do
     children = [
-      {OddJob.Async.ProxySupervisor, Utils.proxy_sup_name(name)},
-      {OddJob.Scheduler.Supervisor, Utils.scheduler_sup_name(name)},
+      {OddJob.Async.ProxySupervisor, name},
+      {OddJob.Scheduler.Supervisor, name},
       {OddJob.Pool, name},
       {OddJob.Pool.Supervisor, args}
     ]
@@ -38,9 +38,6 @@ defmodule OddJob.Supervisor do
   end
 
   @doc false
-  @spec child_spec(start_arg) :: child_spec
-  def child_spec(name) when is_atom(name), do: child_spec(name: name)
-
   def child_spec(opts) when is_list(opts) do
     {name, opts} = Keyword.pop!(opts, :name)
 
@@ -51,4 +48,7 @@ defmodule OddJob.Supervisor do
       start: {__MODULE__, :start_link, [name, opts]}
     )
   end
+
+  @spec child_spec(start_arg) :: child_spec
+  def child_spec(name), do: child_spec(name: name)
 end

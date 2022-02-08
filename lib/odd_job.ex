@@ -25,6 +25,10 @@ defmodule OddJob do
 
   @doc false
   @doc since: "0.4.0"
+  defguard is_time(time) when is_struct(time, Time) or is_struct(time, DateTime)
+
+  @doc false
+  @doc since: "0.4.0"
   defmacro __using__(opts) do
     keys = [:name, :pool_size, :max_restarts, :max_seconds]
     {sup_opts, start_opts} = Keyword.split(opts, keys)
@@ -36,8 +40,6 @@ defmodule OddJob do
         See `Supervisor`.
         """
       end
-
-      def child_spec(arg) when is_atom(arg), do: child_spec(name: arg)
 
       def child_spec(arg) when is_list(arg) do
         spec =
@@ -54,6 +56,8 @@ defmodule OddJob do
 
         Supervisor.child_spec(spec, opts)
       end
+
+      def child_spec(arg) when is_atom(arg), do: child_spec(name: arg)
 
       unless Module.has_attribute?(__MODULE__, :doc) do
         @doc """
@@ -175,7 +179,7 @@ defmodule OddJob do
   The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
   can be one of the following:
 
-    * An atom which will be the name of the pool.
+    * An term which will be the name of the pool.
 
     * A keyword list of options. `:name` is a required key and will name the pool. The other available
     options will override the default config and are detailed in `start_link/2`.
@@ -191,7 +195,7 @@ defmodule OddJob do
 
   ## Arguments
 
-    * `name` - An atom which will name the pool. This argument is required.
+    * `name` - An term which will name the pool. This argument is required.
 
     * `opts` - A keyword list of options. These options will override the default config. The available
     options are:
@@ -221,7 +225,7 @@ defmodule OddJob do
   See `Supervisor` for more on starting supervision trees.
   """
   @doc since: "0.4.0"
-  @spec start_link(atom, [start_option]) :: Supervisor.on_start()
+  @spec start_link(term, [start_option]) :: Supervisor.on_start()
   defdelegate start_link(name, opts \\ []), to: OddJob.Supervisor
 
   @doc """
@@ -237,8 +241,8 @@ defmodule OddJob do
       :hello
   """
   @doc since: "0.1.0"
-  @spec perform(atom, function) :: :ok
-  def perform(pool, fun) when is_atom(pool) and is_function(fun) do
+  @spec perform(term, function) :: :ok
+  def perform(pool, fun) when is_function(fun, 0) do
     job = %Job{function: fun, owner: self()}
 
     pool
@@ -261,9 +265,9 @@ defmodule OddJob do
       [1, 2, 3, 4, 5]
   """
   @doc since: "0.4.0"
-  @spec perform_many(atom, list | map, function) :: :ok
+  @spec perform_many(term, list | map, function) :: :ok
   def perform_many(pool, collection, fun)
-      when is_atom(pool) and is_enumerable(collection) and is_function(fun, 1) do
+      when is_enumerable(collection) and is_function(fun, 1) do
     jobs = for item <- collection, do: %Job{function: fn -> fun.(item) end, owner: self()}
 
     pool
@@ -283,8 +287,8 @@ defmodule OddJob do
       2.6881171418161356e43
   """
   @doc since: "0.1.0"
-  @spec async_perform(atom, function) :: job
-  def async_perform(pool, fun) when is_atom(pool) and is_function(fun) do
+  @spec async_perform(term, function) :: job
+  def async_perform(pool, fun) when is_function(fun, 0) do
     Async.perform(pool, fun)
   end
 
@@ -301,9 +305,9 @@ defmodule OddJob do
       [1, 4, 9, 16, 25]
   """
   @doc since: "0.4.0"
-  @spec async_perform_many(atom, list | map, function) :: [job]
+  @spec async_perform_many(term, list | map, function) :: [job]
   def async_perform_many(pool, collection, fun)
-      when is_atom(pool) and is_enumerable(collection) and is_function(fun, 1) do
+      when is_enumerable(collection) and is_function(fun, 1) do
     Async.perform_many(pool, collection, fun)
   end
 
@@ -373,9 +377,9 @@ defmodule OddJob do
       #=> false # too much time has passed to cancel the job
   """
   @doc since: "0.2.0"
-  @spec perform_after(integer, atom, function) :: reference
+  @spec perform_after(integer, term, function) :: reference
   def perform_after(timer, pool, fun)
-      when is_integer(timer) and is_atom(pool) and is_function(fun) do
+      when is_integer(timer) and is_function(fun, 0) do
     Scheduler.perform_after(timer, pool, fun)
   end
 
@@ -394,10 +398,9 @@ defmodule OddJob do
       OddJob.perform_at(time, :job, fn -> scheduled_job() end)
   """
   @doc since: "0.2.0"
-  @spec perform_at(Time.t() | DateTime.t(), atom, function) :: reference
+  @spec perform_at(Time.t() | DateTime.t(), term, function) :: reference
   def perform_at(time, pool, fun)
-      when (is_struct(time, Time) or is_struct(time, DateTime)) and
-             is_atom(pool) and is_function(fun) do
+      when is_time(time) and is_function(fun) do
     Scheduler.perform_at(time, pool, fun)
   end
 
@@ -444,8 +447,8 @@ defmodule OddJob do
       :job
   """
   @doc since: "0.1.0"
-  @spec pool(atom) :: {pid, pool}
-  def pool(pool) when is_atom(pool) do
+  @spec pool(term) :: {pid, pool}
+  def pool(pool) do
     state = Pool.state(pool)
 
     pid =
@@ -465,7 +468,7 @@ defmodule OddJob do
       {:via, Registry, {OddJob.Registry, {:job, "pool"}}}
   """
   @doc since: "0.4.0"
-  @spec pool_name(atom) :: name
+  @spec pool_name(term) :: name
   defdelegate pool_name(pool), to: OddJob.Utils
 
   @doc """
@@ -481,8 +484,8 @@ defmodule OddJob do
       #=> #PID<0.239.0>
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor(atom) :: pid
-  def pool_supervisor(pool) when is_atom(pool) do
+  @spec pool_supervisor(term) :: pid
+  def pool_supervisor(pool) do
     pool
     |> pool_supervisor_name()
     |> GenServer.whereis()
@@ -497,7 +500,7 @@ defmodule OddJob do
       {:via, Registry, {OddJob.Registry, {:job, "pool_sup"}}}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor_name(atom) :: name
+  @spec pool_supervisor_name(term) :: name
   defdelegate pool_supervisor_name(pool), to: OddJob.Utils
 
   @doc """
@@ -512,8 +515,8 @@ defmodule OddJob do
       #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
   """
   @doc since: "0.1.0"
-  @spec workers(atom) :: [pid]
-  def workers(pool) when is_atom(pool) do
+  @spec workers(term) :: [pid]
+  def workers(pool) do
     {_, %{workers: workers}} = pool(pool)
     workers
   end

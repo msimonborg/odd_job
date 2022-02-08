@@ -4,7 +4,11 @@ defmodule OddJob.Async.ProxySupervisor do
   use DynamicSupervisor
 
   def start_link(name) do
-    DynamicSupervisor.start_link(__MODULE__, [], name: name)
+    opts = [
+      name: OddJob.Utils.proxy_sup_name(name)
+    ]
+
+    DynamicSupervisor.start_link(__MODULE__, [], opts)
   end
 
   @impl DynamicSupervisor

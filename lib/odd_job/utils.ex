@@ -14,18 +14,18 @@ defmodule OddJob.Utils do
   @spec extract_pid({:ok, pid}) :: pid
   def extract_pid({:ok, pid}), do: pid
 
-  @spec supervisor_name(atom) :: name
+  @spec supervisor_name(term) :: name
   def supervisor_name(name), do: via(name, "sup")
 
-  @spec scheduler_sup_name(atom) :: name
+  @spec scheduler_sup_name(term) :: name
   def scheduler_sup_name(name), do: via(name, "scheduler_sup")
 
-  @spec pool_name(atom) :: name
+  @spec pool_name(term) :: name
   def pool_name(name), do: via(name, "pool")
 
-  @spec pool_supervisor_name(atom) :: name
+  @spec pool_supervisor_name(term) :: name
   def pool_supervisor_name(name), do: via(name, "pool_sup")
 
-  @spec proxy_sup_name(atom) :: name
+  @spec proxy_sup_name(term) :: name
   def proxy_sup_name(name), do: via(name, "proxy_sup")
 end

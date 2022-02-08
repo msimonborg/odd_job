@@ -30,8 +30,8 @@ defmodule OddJob.Supervisor do
     pool_opts = [id: pool_name(name), pool: name]
 
     children = [
-      {DynamicSupervisor, strategy: :one_for_one, name: proxy_sup_name(name)},
-      {DynamicSupervisor, strategy: :one_for_one, name: scheduler_sup_name(name)},
+      {OddJob.Async.ProxySupervisor, proxy_sup_name(name)},
+      {OddJob.Scheduler.Supervisor, scheduler_sup_name(name)},
       {OddJob.Pool, pool_opts},
       {OddJob.Pool.Supervisor, args}
     ]

@@ -10,19 +10,19 @@ defmodule OddJob.Pool.Worker do
   @moduledoc since: "0.1.0"
   use GenServer
 
-  alias OddJob.{Registry, Utils}
+  alias OddJob.Utils
 
   defstruct [:id, :pool, :pool_pid]
 
   @type t :: %__MODULE__{
-          id: atom,
+          id: non_neg_integer,
           pool: atom,
           pool_pid: pid
         }
 
   @doc false
   def start_link(opts) do
-    name = Registry.via(opts[:pool], opts[:id])
+    name = Utils.worker_name(opts[:pool], opts[:id])
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 

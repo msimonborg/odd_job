@@ -465,7 +465,7 @@ defmodule OddJob do
   ## Examples
 
       iex> OddJob.pool_name(:job)
-      {:via, Registry, {OddJob.Registry, {:job, "pool"}}}
+      {:via, Registry, {OddJob.Registry, {:job, :pool}}}
   """
   @doc since: "0.4.0"
   @spec pool_name(term) :: name
@@ -497,7 +497,7 @@ defmodule OddJob do
   ## Examples
 
       iex> OddJob.pool_supervisor_name(:job)
-      {:via, Registry, {OddJob.Registry, {:job, "pool_sup"}}}
+      {:via, Registry, {OddJob.Registry, {:job, :pool_sup}}}
   """
   @doc since: "0.4.0"
   @spec pool_supervisor_name(term) :: name

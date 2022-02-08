@@ -1,4 +1,7 @@
 defmodule OddJob.Registry do
+  @moduledoc false
+  @moduledoc since: "0.4.0"
+
   @doc false
   def child_spec(_arg) do
     [keys: :unique, name: __MODULE__, partitions: 2]

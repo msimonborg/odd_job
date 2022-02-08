@@ -1,5 +1,6 @@
 defmodule OddJob.Scheduler.Supervisor do
   @moduledoc false
+
   use DynamicSupervisor
 
   def start_link(name) do

@@ -1,5 +1,6 @@
 defmodule OddJob.Async.ProxySupervisor do
   @moduledoc false
+  @moduledoc since: "0.4.0"
   use DynamicSupervisor
 
   def start_link(name) do

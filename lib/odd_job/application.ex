@@ -6,7 +6,7 @@ defmodule OddJob.Application do
   def start(_type, _args) do
     children =
       [
-        {Registry, name: OddJob.SchedulerRegistry, keys: :unique}
+        OddJob.Registry
       ] ++ default_pool() ++ extra_pools()
 
     opts = [strategy: :one_for_one, name: OddJob.Supervisor]

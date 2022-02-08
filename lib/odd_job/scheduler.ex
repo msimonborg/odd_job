@@ -16,7 +16,7 @@ defmodule OddJob.Scheduler do
   alias OddJob.Utils
 
   @name __MODULE__
-  @registry OddJob.SchedulerRegistry
+  @registry OddJob.Registry
 
   @typedoc false
   @type time :: Time.t() | DateTime.t()

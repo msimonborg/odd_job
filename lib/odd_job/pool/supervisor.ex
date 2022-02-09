@@ -1,10 +1,15 @@
 defmodule OddJob.Pool.Supervisor do
-  @moduledoc false
+  @moduledoc """
+  The `OddJob.Pool.Supervisor` supervises the pool of `OddJob.Pool.Worker`s.
+  """
   @moduledoc since: "0.3.0"
 
+  @doc false
   use Supervisor
+
   alias OddJob.Utils
 
+  @doc false
   def start_link([name, _opts] = args) do
     opts = [
       name: Utils.pool_supervisor_name(name)

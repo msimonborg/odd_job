@@ -8,7 +8,9 @@ defmodule OddJob.Pool do
   """
   @moduledoc since: "0.3.0"
 
+  @doc false
   use GenServer
+
   alias OddJob.{Job, Pool, Utils}
 
   @spec __struct__ :: OddJob.Pool.t()

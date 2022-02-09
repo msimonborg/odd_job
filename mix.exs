@@ -76,13 +76,18 @@ defmodule OddJob.MixProject do
         "Internal Helpers": [
           OddJob.Utils
         ],
-        "Processes and Types": [
+        Types: [
+          OddJob.Job
+        ],
+        Processes: [
           OddJob.Async.Proxy,
-          OddJob.Job,
+          OddJob.Async.ProxySupervisor,
           OddJob.Pool,
+          OddJob.Pool.Supervisor,
           OddJob.Pool.Worker,
           OddJob.Registry,
           OddJob.Scheduler,
+          OddJob.Scheduler.Supervisor,
           OddJob.Supervisor
         ]
       ]

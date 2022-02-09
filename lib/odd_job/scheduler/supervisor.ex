@@ -1,8 +1,14 @@
 defmodule OddJob.Scheduler.Supervisor do
-  @moduledoc false
+  @moduledoc """
+  The `OddJob.Scheduler.Supervisor` is a `DynamicSupervisor` that starts and stops children
+  `OddJob.Scheduler` processes.
+  """
   @moduledoc since: "0.4.0"
+
+  @doc false
   use DynamicSupervisor
 
+  @doc false
   def start_link(name) do
     opts = [
       name: OddJob.Utils.scheduler_sup_name(name)

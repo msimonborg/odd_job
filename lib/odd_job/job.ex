@@ -1,6 +1,6 @@
 defmodule OddJob.Job do
   @moduledoc """
-  The OddJob.Job struct holds all of the useful information about a job.
+  The `OddJob.Job` struct holds all of the useful information about a job.
   """
   @moduledoc since: "0.1.0"
 

@@ -7,6 +7,7 @@ defmodule OddJob.Supervisor do
   the `OddJob` documentation for usage.
   """
   @moduledoc since: "0.1.0"
+
   use Supervisor
 
   alias OddJob.Utils

@@ -8,6 +8,7 @@ defmodule OddJob.Pool.Worker do
   and request to be monitored again when the pool restarts.
   """
   @moduledoc since: "0.1.0"
+
   use GenServer
 
   alias OddJob.Utils

@@ -7,6 +7,8 @@
 - Change `OddJob.supervisor_id` to `OddJob.pool_supervisor_name/1`
 - Change `OddJob.supervisor` to `OddJob.pool_supervisor/1`
 - Change `OddJob.pool_id` to `OddJob.pool_name/1`
+- Change `OddJob.Async.ProxyServer` to `OddJob.Async.Proxy`
+- In the `OddJob` module `perform/2`, `perform_many/3`, `async_perform/2`, `async_perform_many/3`, `perform_after/3`, `perform_at/3`, `pool/1`, `pool_name/1`, `pool_supervisor/1`, `pool_supervisor_name/1`, and `workers/1` will now return `{:error, :not_found}` if the pool does not exist a the time of calling. 
 
 ### Additions
 - New functions `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs

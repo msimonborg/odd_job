@@ -35,7 +35,7 @@ defmodule OddJob.Registry do
 
     * `:scheduler_sup` - the supervisor responsible for starting job scheduling processes
 
-    * `{:worker ,id}` - one of the workers in the `pool`. `id` is a positive integer
+    * `{:worker, id}` - one of the workers in the `pool`. `id` is a positive integer
     identifier. The minimum value is `1`, the maximum value is equal to the pool size.
 
   ## Example

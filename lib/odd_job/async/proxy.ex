@@ -1,6 +1,6 @@
-defmodule OddJob.Async.ProxyServer do
+defmodule OddJob.Async.Proxy do
   @moduledoc """
-  The `OddJob.Async.ProxyServer` links the job caller to the worker as the job is being performed.
+  The `OddJob.Async.Proxy` links the job caller to the worker as the job is being performed.
 
   The process that calls `async_perform/2` or `async_perform_many/3` must link and monitor the worker
   performing the job so it can receive the results and be notified of failure by exiting or

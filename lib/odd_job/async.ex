@@ -5,7 +5,7 @@ defmodule OddJob.Async do
 
   @type job :: OddJob.Job.t()
 
-  @server OddJob.Async.ProxyServer
+  @server OddJob.Async.Proxy
 
   @doc since: "0.1.0"
   @spec perform(atom, fun) :: job

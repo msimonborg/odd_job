@@ -21,8 +21,8 @@ defmodule OddJob.Supervisor do
   @doc false
   @spec start_link(term, [start_option]) :: Supervisor.on_start()
   def start_link(name, opts \\ []) when is_list(opts) do
-    opts = Keyword.delete(opts, :name)
-    Supervisor.start_link(__MODULE__, [name, opts], name: Utils.supervisor_name(name))
+    init_opts = Keyword.delete(opts, :name)
+    Supervisor.start_link(__MODULE__, [name, init_opts], name: Utils.supervisor_name(name))
   end
 
   @impl Supervisor

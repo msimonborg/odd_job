@@ -12,6 +12,7 @@ defmodule OddJob do
 
   alias OddJob.{Async, Job, Pool, Registry, Scheduler}
 
+  @type not_found :: {:error, :not_found}
   @type job :: Job.t()
   @type pool :: Pool.t()
   @type name :: Registry.name()
@@ -179,7 +180,8 @@ defmodule OddJob do
   The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
   can be one of the following:
 
-    * An term which will be the name of the pool.
+    * A `name` can be any Elixir term which will be the name of the pool. Use this if you want to start a pool
+    with the default config options.
 
     * A keyword list of options. `:name` is a required key and will name the pool. The other available
     options will override the default config and are detailed in `start_link/2`.
@@ -195,7 +197,7 @@ defmodule OddJob do
 
   ## Arguments
 
-    * `name` - An term which will name the pool. This argument is required.
+    * `name` - The name of the pool, which can be any Elixir term. This argument is required.
 
     * `opts` - A keyword list of options. These options will override the default config. The available
     options are:
@@ -210,13 +212,13 @@ defmodule OddJob do
       * `max_seconds: integer` - the timeframe in seconds in which `max_restarts` applies. Defaults to 3
       or your application's config value. See `Supervisor` for more info on restart intensity options.
 
-  You can start an `OddJob` pool directly and dynamically to start processing concurrent jobs:
+  You can start an `OddJob` pool dynamically with `start_link/2` to start processing concurrent jobs:
 
       iex> {:ok, _pid} = OddJob.start_link(:event, pool_size: 10)
       iex> OddJob.async_perform(:event, fn -> :do_something end) |> OddJob.await()
       :do_something
 
-  Normally you would instead start your pools inside a supervision tree:
+  In most cases you would instead start your pools inside a supervision tree:
 
       children = [{OddJob, name: :event, pool_size: 10}]
       Supervisor.start_link(children, strategy: :one_for_one)
@@ -231,6 +233,18 @@ defmodule OddJob do
   @doc """
   Performs a fire and forget job.
 
+  Casts the `function` to the job `pool`, and if a worker is available it is performed
+  immediately. If no workers are available the job is added to the back of a FIFO queue to be
+  performed as soon as a worker is available.
+
+  Returns `:ok` if the pool process exists at the time of calling, or `{:error, :not_found}`
+  if it doesn't. The job is casted to the pool, so there can be no guarantee that the pool process
+  will still exist if it crashes between the beginning of the function call and when the message
+  is received.
+
+  Use this function for interaction with other processes or the outside world where you don't
+  care about the return results or whether it succeeds.
+
   ## Examples
 
       iex> parent = self()
@@ -239,19 +253,35 @@ defmodule OddJob do
       ...>   msg -> msg
       ...> end
       :hello
+
+      iex> OddJob.perform(:does_not_exist, fn -> "never called" end)
+      {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec perform(term, function) :: :ok
-  def perform(pool, fun) when is_function(fun, 0) do
-    job = %Job{function: fun, owner: self()}
+  @spec perform(term, function) :: :ok | not_found
+  def perform(pool, function) when is_function(function, 0) do
+    case pool |> pool_name() do
+      {:error, :not_found} ->
+        {:error, :not_found}
 
-    pool
-    |> pool_name()
-    |> GenServer.cast({:perform, job})
+      server ->
+        job = %Job{function: function, owner: self()}
+        GenServer.cast(server, {:perform, job})
+    end
   end
 
   @doc """
   Sends a collection of jobs to the pool.
+
+  Enumerates over the collection, using each member as the argument to an anonymous function
+  witn an arity of `1`. The collection of jobs is sent in bulk to the pool where they will be
+  immediately performed by any available workers. If there are no available workers the jobs
+  are added to the FIFO queue. Jobs are guaranteed to always process in the same order of the
+  original collection, and insertion into the queue is atomic. No jobs sent from other processes
+  can be inserted between any member of the collection.
+
+  Returns `:ok` if the pool process exists at the time of calling, or `{:error, :not_found}`
+  if it doesn't. See `perform/2` for more.
 
   ## Examples
 
@@ -263,37 +293,74 @@ defmodule OddJob do
       ...>   end
       ...> end
       [1, 2, 3, 4, 5]
+
+      iex> OddJob.perform_many(:does_not_exist, ["never", "called"], fn x -> x end)
+      {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec perform_many(term, list | map, function) :: :ok
-  def perform_many(pool, collection, fun)
-      when is_enumerable(collection) and is_function(fun, 1) do
-    jobs = for item <- collection, do: %Job{function: fn -> fun.(item) end, owner: self()}
+  @spec perform_many(term, list | map, function) :: :ok | not_found
+  def perform_many(pool, collection, function)
+      when is_enumerable(collection) and is_function(function, 1) do
+    case pool |> pool_name() do
+      {:error, :not_found} ->
+        {:error, :not_found}
 
-    pool
-    |> pool_name()
-    |> GenServer.cast({:perform_many, jobs})
+      server ->
+        jobs =
+          for member <- collection do
+            %Job{function: fn -> function.(member) end, owner: self()}
+          end
+
+        GenServer.cast(server, {:perform_many, jobs})
+    end
   end
 
   @doc """
   Performs an async job that can be awaited on for the result.
 
-  Functions like `Task.async/1` and `Task.await/2`.
+  Returns the `OddJob.Job.t()` struct if the pool server exists at the time of calling, or
+  {:error, :not_found} if it doesn't.
+
+  Functions similarly to `Task.async/1` and `Task.await/2` with some tweaks. Since the workers in the
+  `pool` already exist when this function is called and may be busy performing other jobs, it is
+  unknown at the time of calling when the job will be performed and by which worker process.
+
+  An `OddJob.Async.Proxy` is dynamically created and linked and monitored by the caller. The `Proxy`
+  handles the transactions with the pool and is notified when a worker is assigned. The proxy
+  links and monitors the worker immediately before performance of the job, forwarding any exits or
+  crashes to the caller. The worker returns the results to the proxy, which then passes them to the
+  caller with a `{ref, result}` message. The proxy immediately exits with reason `:normal` after the
+  results are sent back to the caller.
+
+  See `await/2` and `await_many/2` for functions to retrieve the results, and the `Task` module for
+  more information on the `async/await` patter and when you may want to use it.
 
   ## Examples
 
       iex> job = OddJob.async_perform(:job, fn -> :math.exp(100) end)
       iex> OddJob.await(job)
       2.6881171418161356e43
+
+      iex> OddJob.async_perform(:does_not_exist, fn -> "never called" end)
+      {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec async_perform(term, function) :: job
-  def async_perform(pool, fun) when is_function(fun, 0) do
-    Async.perform(pool, fun)
+  @spec async_perform(term, function) :: job | not_found
+  def async_perform(pool, function) when is_function(function, 0) do
+    case pool |> pool_name() do
+      {:error, :not_found} -> {:error, :not_found}
+      _ -> Async.perform(pool, function)
+    end
   end
 
   @doc """
   Sends a collection of async jobs to the pool.
+
+  Returns a list of `OddJob.Job.t()` structs if the pool server exists at the time of
+  calling, or {:error, :not_found} if it doesn't.
+
+  Enumerates over the collection, using each member as the argument to an anonymous function
+  witn an arity of `1`. See `async_perform/2` and `perform/2` for more information.
 
   There's a limit to the number of jobs that can be started with this function that
   roughly equals the BEAM's process limit.
@@ -303,16 +370,35 @@ defmodule OddJob do
       iex> jobs = OddJob.async_perform_many(:job, 1..5, fn x -> x ** 2 end)
       iex> OddJob.await_many(jobs)
       [1, 4, 9, 16, 25]
+
+      iex> OddJob.async_perform_many(:does_not_exist, ["never", "called"], fn x -> x end)
+      {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec async_perform_many(term, list | map, function) :: [job]
-  def async_perform_many(pool, collection, fun)
-      when is_enumerable(collection) and is_function(fun, 1) do
-    Async.perform_many(pool, collection, fun)
+  @spec async_perform_many(term, list | map, function) :: [job] | not_found
+  def async_perform_many(pool, collection, function)
+      when is_enumerable(collection) and is_function(function, 1) do
+    case pool |> pool_name() do
+      {:error, :not_found} -> {:error, :not_found}
+      _ -> Async.perform_many(pool, collection, function)
+    end
   end
 
   @doc """
-  Awaits on an async job and returns the results.
+  Awaits on an async job reply and returns the results.
+
+  The current process and the worker process are linked during execution of the job by an
+  `OddJob.Async.Proxy`. In case the worker process dies during execution, the current process
+  will exit with the same reason as the worker.
+
+  A timeout, in milliseconds or :infinity, can be given with a default value of 5000. If the
+  timeout is exceeded, then the current process will exit. If the worker process is linked to the
+  current process which is the case when a job is started with async, then the worker process will
+  also exit.
+
+  This function assumes the proxy's monitor is still active or the monitor's :DOWN message is in the
+  message queue. If it has been demonitored, or the message already received, this function will wait
+  for the duration of the timeout awaiting the message.
 
   ## Examples
 
@@ -321,24 +407,26 @@ defmodule OddJob do
       100.0
   """
   @doc since: "0.1.0"
-  @spec await(job, timeout) :: any
+  @spec await(job, timeout) :: term
   def await(job, timeout \\ 5000) when is_struct(job, Job) do
     Async.await(job, timeout)
   end
 
   @doc """
-  Awaits replies form multiple async jobs and returns them in a list.
+  Awaits replies from multiple async jobs and returns them in a list.
 
   This function receives a list of jobs and waits for their replies in the given time interval.
   It returns a list of the results, in the same order as the jobs supplied in the `jobs` input argument.
 
-  If any of the job worker processes dies, the caller process will exit with the same reason as that worker.
+  The current process and each worker process are linked during execution of the job by an
+  `OddJob.Async.Proxy`. If any of the worker processes dies, the caller process will exit with the same
+  reason as that worker.
 
   A timeout, in milliseconds or `:infinity`, can be given with a default value of `5000`. If the timeout
   is exceeded, then the caller process will exit. Any worker processes that are linked to the caller process
   (which is the case when a job is started with `async_perform/2`) will also exit.
 
-  This function assumes the jobs' monitors are still active or the monitor's :DOWN message is in the
+  This function assumes the proxies' monitors are still active or the monitor's :DOWN message is in the
   message queue. If any jobs have been demonitored, or the message already received, this function will
   wait for the duration of the timeout.
 
@@ -350,7 +438,7 @@ defmodule OddJob do
       [4, 9]
   """
   @doc since: "0.2.0"
-  @spec await_many([job], timeout) :: [any]
+  @spec await_many([job], timeout) :: [term]
   def await_many(jobs, timeout \\ 5000) when is_list(jobs) do
     Async.await_many(jobs, timeout)
   end
@@ -360,8 +448,10 @@ defmodule OddJob do
 
   `timer` is an integer that indicates the number of milliseconds that should elapse before
   the job is sent to the pool. The timed message is executed under a separate supervised process,
-  so if the caller crashes the job will still be performed. A timer reference is returned,
-  which can be read with `Process.read_timer/1` or cancelled with `OddJob.cancel_timer/1`.
+  so if the current process crashes the job will still be performed. A timer reference is returned,
+  which can be read with `Process.read_timer/1` or cancelled with `OddJob.cancel_timer/1`. Returns
+  `{:error, :not_found}` if the `pool` server does not exist at the time this function is
+  called.
 
   ## Examples
 
@@ -375,33 +465,47 @@ defmodule OddJob do
       Process.sleep(6000)
       OddJob.cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
+
+      iex> OddJob.perform_after(5000, :does_not_exist, fn -> "never called" end)
+      {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_after(integer, term, function) :: reference
+  @spec perform_after(integer, term, function) :: reference | not_found
   def perform_after(timer, pool, fun)
       when is_integer(timer) and is_function(fun, 0) do
-    Scheduler.perform_after(timer, pool, fun)
+    case pool |> pool_name() do
+      {:error, :not_found} -> {:error, :not_found}
+      _ -> Scheduler.perform_after(timer, pool, fun)
+    end
   end
 
   @doc """
   Sends a job to the `pool` at the given `time`.
 
   `time` can be a `Time` or a `DateTime` struct. If a `Time` struct is received, then
-  the job will be done the next time the clock strikes the given time. The timer is executed
+  the job will be performed the next time the clock strikes the given time. The timer is executed
   under a separate supervised process, so if the caller crashes the job will still be performed.
   A timer reference is returned, which can be read with `Process.read_timer/1` or canceled with
-  `OddJob.cancel_timer/1`.
+  `OddJob.cancel_timer/1`. Returns `{:error, :not_found}` if the `pool` server does not exist at
+  the time this function is called.
 
   ## Examples
 
       time = Time.utc_now() |> Time.add(600, :second)
       OddJob.perform_at(time, :job, fn -> scheduled_job() end)
+
+      iex> time = Time.utc_now() |> Time.add(600, :second)
+      iex> OddJob.perform_at(time, :does_not_exist, fn -> "never called" end)
+      {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_at(Time.t() | DateTime.t(), term, function) :: reference
+  @spec perform_at(Time.t() | DateTime.t(), term, function) :: reference | not_found
   def perform_at(time, pool, fun)
       when is_time(time) and is_function(fun) do
-    Scheduler.perform_at(time, pool, fun)
+    case pool |> pool_name() do
+      {:error, :not_found} -> {:error, :not_found}
+      _ -> Scheduler.perform_at(time, pool, fun)
+    end
   end
 
   @doc """
@@ -436,7 +540,20 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the pid and state of the job `pool`.
+  Returns the `pid` and `state` of the job `pool`.
+
+  The pool `state` has the following fields:
+
+    * `:workers` - A list of the `pid`s of all workers in the `pool`
+
+    * `:assigned` - The `pid`s of the workers currently assigned to jobs
+
+    * `:jobs` - A list of `OddJob.Job` structs in the queue awaiting execution
+
+    * `:pool` - The Elixir term naming the `pool`.
+
+  Returns `{:error, :not_found}` if the `pool` server does not exist at
+  the time this function is called.
 
   ## Examples
 
@@ -445,79 +562,127 @@ defmodule OddJob do
       true
       iex> pool
       :job
+
+      iex> OddJob.pool(:does_not_exist)
+      {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec pool(term) :: {pid, pool}
+  @spec pool(term) :: {pid, pool} | not_found
   def pool(pool) do
-    state = Pool.state(pool)
+    name = OddJob.Utils.pool_name(pool)
 
-    pid =
-      pool
-      |> pool_name()
-      |> GenServer.whereis()
+    case GenServer.whereis(name) do
+      nil ->
+        {:error, :not_found}
 
-    {pid, state}
+      pid ->
+        state = Pool.state(pool)
+        {pid, state}
+    end
   end
 
   @doc """
-  Returns the registered name of the job `pool` process.
+  Returns the registered name in `:via` for the `pool` process. See the
+  `Registry` module for more information on `:via` process name registration.
+
+  Returns `{:error, :not_found}` if the `pool` server does not exist at
+  the time this function is called.
 
   ## Examples
 
       iex> OddJob.pool_name(:job)
       {:via, Registry, {OddJob.Registry, {:job, :pool}}}
+
+      iex> OddJob.pool_name(:does_not_exist)
+      {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_name(term) :: name
-  defdelegate pool_name(pool), to: OddJob.Utils
+  @spec pool_name(term) :: name | not_found
+  def pool_name(pool) do
+    name = OddJob.Utils.pool_name(pool)
+
+    case GenServer.whereis(name) do
+      nil -> {:error, :not_found}
+      _ -> name
+    end
+  end
 
   @doc """
-  Returns the pid of the job `pool`'s supervisor.
+  Returns the pid of the `OddJob.Pool.Supervisor` that supervises the job `pool`'s workers.
 
-  There is no guarantee that the process will still be alive after the results are returned,
-  as it could exit or be killed or restarted at any time. Use `supervisor_id/1` to obtain
-  the persistent ID of the supervisor.
+  Returns `{:error, :not_found}` if the process does not exist at
+  the time this function is called.
+
+  There is no guarantee that the process identified by the `pid` will still be alive
+  after the results are returned, as it could exit or be killed or restarted at any time.
+  Use `pool_supervisor_name/1` to obtain the persistent registered name of the supervisor.
 
   ## Examples
 
       OddJob.pool_supervisor(:job)
       #=> #PID<0.239.0>
+
+      iex> OddJob.pool_supervisor(:does_not_exist)
+      {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor(term) :: pid
+  @spec pool_supervisor(term) :: pid | not_found
   def pool_supervisor(pool) do
-    pool
-    |> pool_supervisor_name()
-    |> GenServer.whereis()
+    case pool |> pool_supervisor_name() |> GenServer.whereis() do
+      nil -> {:error, :not_found}
+      pid -> pid
+    end
   end
 
   @doc """
-  Returns the registered name of the job `pool`'s worker supervisor.
+  Returns the registered name in `:via` of the `OddJob.Pool.Supervisor` that
+  supervises the `pool`'s workers
+
+  Returns `{:error, :not_found}` if the process does not exist at
+  the time this function is called.
 
   ## Examples
 
       iex> OddJob.pool_supervisor_name(:job)
       {:via, Registry, {OddJob.Registry, {:job, :pool_sup}}}
+
+      iex> OddJob.pool_supervisor_name(:does_not_exist)
+      {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor_name(term) :: name
-  defdelegate pool_supervisor_name(pool), to: OddJob.Utils
+  @spec pool_supervisor_name(term) :: name | not_found
+  def pool_supervisor_name(pool) do
+    name = OddJob.Utils.pool_supervisor_name(pool)
+
+    case GenServer.whereis(name) do
+      nil -> {:error, :not_found}
+      _ -> name
+    end
+  end
 
   @doc """
   Returns a list of `pid`s for the specified worker pool.
 
-  There is no guarantee that the processes will still be alive after the results are returned,
-  as they could exit or be killed at any time.
+  There is no guarantee that the processes will still be alive after the
+  results are returned, as they could exit or be killed at any time.
+
+  Returns `{:error, :not_found}` if the `pool` does not exist at
+  the time this function is called.
 
   ## Examples
 
       OddJob.workers(:job)
       #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
+
+      iex> OddJob.workers(:does_not_exist)
+      {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec workers(term) :: [pid]
+  @spec workers(term) :: [pid] | not_found
   def workers(pool) do
-    {_, %{workers: workers}} = pool(pool)
-    workers
+    case pool(pool) do
+      {:error, :not_found} = error -> error
+      {_, %{workers: workers}} -> workers
+    end
   end
 end

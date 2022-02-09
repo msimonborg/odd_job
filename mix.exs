@@ -77,7 +77,7 @@ defmodule OddJob.MixProject do
           OddJob.Utils
         ],
         "Processes and Types": [
-          OddJob.Async.ProxyServer,
+          OddJob.Async.Proxy,
           OddJob.Job,
           OddJob.Pool,
           OddJob.Pool.Worker,

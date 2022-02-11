@@ -30,8 +30,7 @@ defmodule OddJob.Pool.Worker do
 
   @doc false
   def start_link(opts) do
-    name = Utils.worker_name(opts[:pool], opts[:id])
-    GenServer.start_link(__MODULE__, opts, name: name)
+    GenServer.start_link(__MODULE__, opts)
   end
 
   @impl GenServer

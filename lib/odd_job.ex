@@ -141,7 +141,7 @@ defmodule OddJob do
       end
       |> await()
 
-      iex> (perform_this MyApp.Job, :async, do: 10 ** 2) |> await()
+      iex> (perform_this OddJob.Job, :async, do: 10 ** 2) |> await()
       100
   """
   @doc since: "0.3.0"

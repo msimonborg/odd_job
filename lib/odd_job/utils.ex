@@ -73,13 +73,4 @@ defmodule OddJob.Utils do
   """
   @spec proxy_sup_name(term) :: name
   def proxy_sup_name(name), do: via(name, :proxy_sup)
-
-  @doc """
-  Returns the `OddJob.Pool.Worker` name in :via for the given `name` and `id`.
-
-      iex> OddJob.Utils.worker_name(:job, 1)
-      {:via, Registry, {OddJob.Registry, {:job, {:worker, 1}}}}
-  """
-  @spec worker_name(term, non_neg_integer) :: name
-  def worker_name(name, id), do: via(name, {:worker, id})
 end

@@ -44,7 +44,7 @@ defmodule OddJob.Application do
             Keyword.put(opts, :name, name)
 
           name when is_atom(name) ->
-            name
+            [name: name]
 
           name ->
             raise ArgumentError,

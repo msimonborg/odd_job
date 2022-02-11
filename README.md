@@ -82,8 +82,8 @@ config :odd_job,
 ```
 
 Next we'll see how you can [add job pools to your own application's supervision tree](#supervising-job-pools).
-If you don't want OddJob to supervise any pools for you (including the default `OddJob.Job` pool) then pass `false` 
-to the `:default_pool` config key:
+If you don't want OddJob to supervise any pools for you (including the default `OddJob.Job`
+pool) do not set a value for `:extra_pools` and pass `false` to the `:default_pool` config key:
 
 ```elixir
 config :odd_job, default_pool: false
@@ -91,20 +91,20 @@ config :odd_job, default_pool: false
 
 ## Supervising job pools
 
-You can dynamically start a new job pool linked to the current process by calling `OddJob.start_link/2`:
+You can dynamically start a new job pool linked to the current process by calling `OddJob.start_link/1`:
 
 ```elixir
-{:ok, pid} = OddJob.start_link(MyApp.Email, pool_size: 10)
+{:ok, pid} = OddJob.start_link(name: MyApp.Email, pool_size: 10)
 OddJob.perform(MyApp.Email, fn -> do_something() end)
 #=> :ok
 ```
 
 The first argument to the function is the name of the pool, the second argument is a keyword list
-of options to configure the pool. See the `OddJob.start_link/2` documentation for more details.
+of options to configure the pool. See the `OddJob.start_link/1` documentation for more details.
 
 In most cases you'll want to supervise your job pools, which you can do by adding a tuple in
-the form of `{OddJob, name}` (where `name` is an atom) directly to the top level of your 
-application's supervision tree or any other list of child specs for a supervisor:
+the form of `{OddJob, options}` directly to the top level of your application's supervision 
+tree or any other list of child specs for a supervisor:
 
 ```elixir
 defmodule MyApp.Application do
@@ -113,8 +113,8 @@ defmodule MyApp.Application do
   def start(_type, _args) do
 
     children = [
-      {OddJob, MyApp.Email},
-      {OddJob, MyApp.ExternalService}
+      {OddJob, name: MyApp.Email},
+      {OddJob, name: MyApp.ExternalService}
     ]
 
     opts = [strategy: :one_for_one, name: MyApp.Supervisor]
@@ -123,40 +123,45 @@ defmodule MyApp.Application do
 end
 ```
 
-The tuple `{OddJob, MyApp.Email}` will return a child spec for a supervisor that will start and supervise
-the `MyApp.Email` pool. The second element of the tuple can be any atom that you want to use as a unique
-name for the pool. You can supervise as many pools as you want, as long as they have unique names.
+The tuple `{OddJob, name: MyApp.Email}` will return a child spec for a supervisor that will start 
+and supervise the `MyApp.Email` pool. The second element of the tuple must be a keyword list of
+options with a `:name` key and a unique `name` value as an atom. You can supervise as many pools as
+you want, as long as they have unique names.
 
 Any default configuration options listed in your `config.exs` will also apply to your own supervised
-pools. You can override the config for any pool by passing a keyword list as the second argument
-in the child spec tuple:
+pools. You can override the config for any pool by passing specifying the configuration in your
+child spec options:
 
 ```elixir
 def start(_type, _args) do
 
   children = [
-    {OddJob, MyApp.Email}, # The MyApp.Email pool will use the default config
-    {OddJob, name: MyApp.ExternalService, pool_size: 20, max_restarts: 10} # The MyApp.ExternalService pool will not
+    # The MyApp.Email pool will use the default config:
+    {OddJob, name: MyApp.Email},
+    # The MyApp.ExternalService pool will not:
+    {OddJob, name: MyApp.ExternalService, pool_size: 20, max_restarts: 10}
   ]
 
   Supervisor.start_link(children, opts)
 end
 ```
 
+<!-- USINGDOC -->
+
 ## Module-based pools
 
 You may want to configure your pool at runtime, or wrap your logic in a custom API. Module-based
-pools are great for this. Invoking `use OddJob` defines a `child_spec/1` function that can be
+pools are great for this. Invoking `use OddJob.Pool` defines a `child_spec/1` function that can be
 used to start your pool under a supervisor.
 
 Imagine you want to start a job pool with a dynamically configurable pool size:
 
 ```elixir
 defmodule MyApp.Email do
-  use OddJob
+  use OddJob.Pool
 
   def start_link(init_arg) do
-    OddJob.start_link(__MODULE__, pool_size: init_arg)
+    OddJob.start_link(name: __MODULE__, pool_size: init_arg)
   end
 
   # Client API
@@ -191,7 +196,7 @@ Supervisor.start_link(children, strategy: :one_for_one)
 # in my_app/job.ex
 
 defmodule MyApp.Email do
-  use OddJob
+  use OddJob.Pool
 
   def start_link(_init_arg) do
     OddJob.start_link(__MODULE__)
@@ -199,16 +204,17 @@ defmodule MyApp.Email do
 end
 ```
 
-For convenience, `use OddJob` automatically defines an overridable `start_link/1` function just like
-the one above, that ignores the initial argument and names the pool after the module, with the default
-configuration options.
+For convenience, `use OddJob.Pool` automatically defines an overridable `start_link/1` function 
+just like the one above, that ignores the initial argument and names the pool after the module, 
+using the default configuration options.
 
-You can pass any supervision `start options` to `use OddJob`:
+You can pass any supervision `start options` to `use OddJob.Pool`:
 ```elixir
-use OddJob, restart: :transient, shutdown: :brutal_kill
+use OddJob.Pool, restart: :transient, shutdown: :brutal_kill
 ``` 
-See the `Supervisor` module for more info
-on supervision start options.
+See the `Supervisor` module for more info on supervision start options.
+
+<!-- USINGDOC -->
 
 All of the previously mentioned config options can be combined. You can have a 
 default pool, extra pools in the OddJob supervision tree, and pools to 
@@ -227,15 +233,16 @@ data = OddJob.await(job)
 OddJob.perform(MyApp.Email, fn -> send_email(user, data) end)
 ```
 
-If a worker in the pool is available then the job will be performed right away. If all of the workers
-are already assigned to other jobs then the new job will be added to a FIFO queue. Jobs in the queue
-are performed as workers become available.
+If a worker in the pool is available then the job will be performed right away. If all of the 
+workers are already assigned to other jobs then the new job will be added to a FIFO queue. Jobs in 
+the queue are performed as workers become available.
 
-Use `perform/2` for immediate fire and forget jobs where you don't care about the results or if it succeeds.
-`async_perform/2` and `await/1` follow the async/await pattern in the `Task` module, and are useful when
-you need to retrieve the results and you care about success or failure. Similarly to `Task.async/1`, async jobs
-will be linked and monitored by the caller (in this case, through a proxy). If either the caller or the job
-crash or exit, the other will crash or exit with the same reason.
+Use `perform/2` for immediate fire and forget jobs where you don't care about the results or if it 
+succeeds. `async_perform/2` and `await/1` follow the async/await pattern in the `Task` module, and 
+are useful when you need to retrieve the results and you care about success or failure. Similarly 
+to `Task.async/1`, async jobs will be linked and monitored by the caller (in this case, through a 
+proxy). If either the caller or the job crash or exit, the other will crash or exit with the same 
+reason.
 
 ## Scheduled jobs
 
@@ -248,10 +255,10 @@ time = DateTime.utc_now |> DateTime.add(60 * 60 * 24, :second) # 24 hours from n
 OddJob.perform_at(time, OddJob.Job, fn -> verify_work_is_done() end) # accepts a future DateTime struct
 ```
 
-The scheduling functions return a unique timer reference which can be read with `Process.read_timer/1` and
-cancelled with `OddJob.cancel_timer/1`, which will cancel execution of the job itself *and* clean up after
-itself by causing the scheduler process to exit. When the timer is up the job will be sent to the pool and
-can no longer be aborted.
+The scheduling functions return a unique timer reference which can be read with `Process.read_timer/
+1` and cancelled with `OddJob.cancel_timer/1`, which will cancel execution of the job itself *and* 
+clean up after itself by causing the scheduler process to exit. When the timer is up the job will 
+be sent to the pool and can no longer be aborted.
 
 ```elixir
 ref = OddJob.perform_after(5000, OddJob.Job, fn -> :will_be_canceled end)
@@ -262,9 +269,9 @@ if some_condition() do
 end
 ```
 
-Note that there is no guarantee that a scheduled job will be executed immediately when the timer runs out.
-Like all jobs it is sent to the pool and if all workers are busy then the job enters the queue to be 
-performed as soon as a worker is available.
+Note that there is no guarantee that a scheduled job will be executed immediately when the timer 
+runs out. Like all jobs it is sent to the pool and if all workers are busy then the job enters the 
+queue to be performed as soon as a worker is available.
 
 ## License
 

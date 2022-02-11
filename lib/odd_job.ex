@@ -98,7 +98,7 @@ defmodule OddJob do
       end
       |> await()
 
-      iex> (perform_this OddJob.Job, :async, do: 10 ** 2) |> await()
+      iex> (perform_this OddJob.Pool, :async, do: 10 ** 2) |> await()
       100
   """
   @doc since: "0.3.0"
@@ -121,8 +121,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> children = [OddJob.child_spec(MyApp.Media)]
-      [%{id: {OddJob, MyApp.Media}, start: {OddJob.Supervisor, :start_link, [MyApp.Media, []]}, type: :supervisor}]
+      iex> children = [OddJob.child_spec(name: MyApp.Media)]
+      [%{id: MyApp.Media, start: {OddJob.Pool, :start_link, [[name: MyApp.Media]]}, type: :supervisor}]
       iex> {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
       iex> OddJob.workers(MyApp.Media) |> length()
       5
@@ -130,19 +130,25 @@ defmodule OddJob do
   Normally you would start an `OddJob` pool under a supervision tree with a child specification tuple
   and not call `child_spec/1` directly.
 
-      children = [{OddJob, MyApp.Media}]
+      children = [{OddJob, name: MyApp.Media}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
-  ## Arguments
+  You must pass a keyword list of options to `child_spec/1`, or as the second element of the
+  child specification tuple.
 
-  The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
-  can be one of the following:
+  ## Options
 
-    * A `name` must be an atom and will be the name of the pool. Use this if you want to start a pool
-    with the default config options.
+    * `name` - An atom that names the pool. This argument is required.
 
-    * A keyword list of options. `:name` is a required key and will name the pool. The other available
-    options will override the default config and are detailed in `start_link/2`.
+    * `pool_size: integer` - the number of concurrent workers in the pool. Defaults to 5 or your application's
+    config value.
+
+    * `max_restarts: integer` - the number of worker restarts allowed in a given timeframe before all
+    of the workers are restarted. Set a higher number if your jobs have a high rate of expected failure.
+    Defaults to 5 or your application's config value.
+
+    * `max_seconds: integer` - the timeframe in seconds in which `max_restarts` applies. Defaults to 3
+    or your application's config value. See `Supervisor` for more info on restart intensity options.
 
   See the `Supervisor` module for more about child specs.
   """
@@ -164,26 +170,9 @@ defmodule OddJob do
   @doc """
   Starts an `OddJob.Pool` supervision tree linked to the current process.
 
-  ## Arguments
+  You can start an `OddJob` pool dynamically with `start_link/1` to start processing concurrent jobs:
 
-    * `name` - An atom that names the pool. This argument is required.
-
-    * `opts` - A keyword list of options. These options will override the default config. The available
-    options are:
-
-      * `pool_size: integer` - the number of concurrent workers in the pool. Defaults to 5 or your application's
-      config value.
-
-      * `max_restarts: integer` - the number of worker restarts allowed in a given timeframe before all
-      of the workers are restarted. Set a higher number if your jobs have a high rate of expected failure.
-      Defaults to 5 or your application's config value.
-
-      * `max_seconds: integer` - the timeframe in seconds in which `max_restarts` applies. Defaults to 3
-      or your application's config value. See `Supervisor` for more info on restart intensity options.
-
-  You can start an `OddJob` pool dynamically with `start_link/2` to start processing concurrent jobs:
-
-      iex> {:ok, _pid} = OddJob.start_link(MyApp.Event, pool_size: 10)
+      iex> {:ok, _pid} = OddJob.start_link(name: MyApp.Event, pool_size: 10)
       iex> OddJob.async_perform(MyApp.Event, fn -> :do_something end) |> OddJob.await()
       :do_something
 
@@ -192,8 +181,9 @@ defmodule OddJob do
       children = [{OddJob, name: MyApp.Event, pool_size: 10}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
-  The second element of the child spec tuple must be one of the `start_arg`s accepted by `child_spec/1`.
-  See `Supervisor` for more on starting supervision trees.
+  See `OddJob.child_spec/1` for a list of available options.
+
+  See `Supervisor` for more on child specifications and supervision trees.
   """
   @doc since: "0.4.0"
   @spec start_link(options) :: Supervisor.on_start()
@@ -228,7 +218,7 @@ defmodule OddJob do
   ## Examples
 
       iex> parent = self()
-      iex> :ok = OddJob.perform(OddJob.Job, fn -> send(parent, :hello) end)
+      iex> :ok = OddJob.perform(OddJob.Pool, fn -> send(parent, :hello) end)
       iex> receive do
       ...>   msg -> msg
       ...> end
@@ -266,7 +256,7 @@ defmodule OddJob do
   ## Examples
 
       iex> caller = self()
-      iex> OddJob.perform_many(OddJob.Job, 1..5, fn x -> send(caller, x) end)
+      iex> OddJob.perform_many(OddJob.Pool, 1..5, fn x -> send(caller, x) end)
       iex> for x <- 1..5 do
       ...>   receive do
       ...>     ^x -> x
@@ -317,7 +307,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job = OddJob.async_perform(OddJob.Job, fn -> :math.exp(100) end)
+      iex> job = OddJob.async_perform(OddJob.Pool, fn -> :math.exp(100) end)
       iex> OddJob.await(job)
       2.6881171418161356e43
 
@@ -347,7 +337,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> jobs = OddJob.async_perform_many(OddJob.Job, 1..5, fn x -> x ** 2 end)
+      iex> jobs = OddJob.async_perform_many(OddJob.Pool, 1..5, fn x -> x ** 2 end)
       iex> OddJob.await_many(jobs)
       [1, 4, 9, 16, 25]
 
@@ -382,7 +372,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.async_perform(OddJob.Job, fn -> :math.log(2.6881171418161356e43) end)
+      iex> OddJob.async_perform(OddJob.Pool, fn -> :math.log(2.6881171418161356e43) end)
       ...> |> OddJob.await()
       100.0
   """
@@ -412,8 +402,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job1 = OddJob.async_perform(OddJob.Job, fn -> 2 ** 2 end)
-      iex> job2 = OddJob.async_perform(OddJob.Job, fn -> 3 ** 2 end)
+      iex> job1 = OddJob.async_perform(OddJob.Pool, fn -> 2 ** 2 end)
+      iex> job2 = OddJob.async_perform(OddJob.Pool, fn -> 3 ** 2 end)
       iex> [job1, job2] |> OddJob.await_many()
       [4, 9]
   """
@@ -435,13 +425,13 @@ defmodule OddJob do
 
   ## Examples
 
-      timer_ref = OddJob.perform_after(5000, OddJob.Job, fn -> deferred_job() end)
+      timer_ref = OddJob.perform_after(5000, OddJob.Pool, fn -> deferred_job() end)
       Process.read_timer(timer_ref)
       #=> 2836 # time remaining before job is sent to the pool
       OddJob.cancel_timer(timer_ref)
       #=> 1175 # job has been cancelled
 
-      timer_ref = OddJob.perform_after(5000, OddJob.Job, fn -> deferred_job() end)
+      timer_ref = OddJob.perform_after(5000, OddJob.Pool, fn -> deferred_job() end)
       Process.sleep(6000)
       OddJob.cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
@@ -471,7 +461,7 @@ defmodule OddJob do
   ## Examples
 
       time = DateTime.utc_now() |> DateTime.add(600, :second)
-      OddJob.perform_at(time, OddJob.Job, fn -> scheduled_job() end)
+      OddJob.perform_at(time, OddJob.Pool, fn -> scheduled_job() end)
 
       iex> time = DateTime.utc_now() |> DateTime.add(600, :second)
       iex> OddJob.perform_at(time, :does_not_exist, fn -> "never called" end)
@@ -537,11 +527,11 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> {pid, %OddJob.Queue{pool: pool}} = OddJob.queue(OddJob.Job)
+      iex> {pid, %OddJob.Queue{pool: pool}} = OddJob.queue(OddJob.Pool)
       iex> is_pid(pid)
       true
       iex> pool
-      OddJob.Job
+      OddJob.Pool
 
       iex> OddJob.queue(:does_not_exist)
       {:error, :not_found}
@@ -570,8 +560,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.queue_name(OddJob.Job)
-      {:via, Registry, {OddJob.Registry, {OddJob.Job, :queue}}}
+      iex> OddJob.queue_name(OddJob.Pool)
+      {:via, Registry, {OddJob.Registry, {OddJob.Pool, :queue}}}
 
       iex> OddJob.queue_name(:does_not_exist)
       {:error, :not_found}
@@ -599,7 +589,7 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.pool_supervisor(OddJob.Job)
+      OddJob.pool_supervisor(OddJob.Pool)
       #=> #PID<0.239.0>
 
       iex> OddJob.pool_supervisor(:does_not_exist)
@@ -623,8 +613,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.pool_supervisor_name(OddJob.Job)
-      {:via, Registry, {OddJob.Registry, {OddJob.Job, :pool_sup}}}
+      iex> OddJob.pool_supervisor_name(OddJob.Pool)
+      {:via, Registry, {OddJob.Registry, {OddJob.Pool, :pool_sup}}}
 
       iex> OddJob.pool_supervisor_name(:does_not_exist)
       {:error, :not_found}
@@ -651,7 +641,7 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.workers(OddJob.Job)
+      OddJob.workers(OddJob.Pool)
       #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
 
       iex> OddJob.workers(:does_not_exist)
@@ -675,7 +665,7 @@ defmodule OddJob do
 
   ## Example
 
-      iex> {:ok, pid} = OddJob.start_link(:whereis)
+      iex> {:ok, pid} = OddJob.start_link(name: :whereis)
       iex> OddJob.whereis(:whereis) == pid
       true
 

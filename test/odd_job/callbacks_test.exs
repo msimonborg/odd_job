@@ -10,7 +10,7 @@ defmodule OddJob.CallbacksTest do
 
   describe "module-based jobs" do
     defmodule Job do
-      use OddJob
+      use OddJob.Pool
     end
 
     test "can be added to a supervision tree", %{sup: sup} do
@@ -23,7 +23,9 @@ defmodule OddJob.CallbacksTest do
     end
 
     test "ignores arguments to `start_link/1` if no custom function is defined" do
-      message = ExUnit.CaptureIO.capture_io(:stderr, fn -> Job.start_link(:different_name) end)
+      message =
+        ExUnit.CaptureIO.capture_io(:stderr, fn -> Job.start_link(name: :different_name) end)
+
       assert String.contains?(message, "Your initial argument was ignored") == true
 
       assert OddJob.whereis(:different_name) == nil
@@ -34,10 +36,10 @@ defmodule OddJob.CallbacksTest do
 
   describe "start_link/1" do
     defmodule StartLinkJob do
-      use OddJob
+      use OddJob.Pool
 
       def start_link(init_arg) do
-        OddJob.start_link(AnotherName, pool_size: init_arg)
+        OddJob.start_link(name: AnotherName, pool_size: init_arg)
       end
     end
 
@@ -52,7 +54,7 @@ defmodule OddJob.CallbacksTest do
 
   describe "__using__/1" do
     defmodule UsingJob do
-      use OddJob, restart: :temporary, shutdown: 5000
+      use OddJob.Pool, restart: :temporary, shutdown: 5000
     end
 
     test "can configure the process start options" do

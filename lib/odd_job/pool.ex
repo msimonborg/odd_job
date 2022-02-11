@@ -1,11 +1,27 @@
 defmodule OddJob.Pool do
+  @external_resource readme = Path.join([__DIR__, "../../README.md"])
+
+  @usingdoc readme
+            |> File.read!()
+            |> String.split("<!-- USINGDOC -->")
+            |> Enum.fetch!(1)
+
   @moduledoc """
+  ## The `OddJob.Pool` process
+
   The `OddJob.Pool` is the supervisor at the top of a pool supervision tree, and is
   responsible for starting and supervising the `OddJob.Pool.Supervisor`, `OddJob.Queue`,
-  `OddJob.Async.ProxySupervisor`, and `OddJob.Scheduler.Supervisor`.
+  `OddJob.Async.ProxySupervisor`, and `OddJob.Scheduler.Supervisor`. When you add a
+  `OddJob.child_spec/1` to your list of supervised children, or call `OddJob.start_link/1`,
+  you are adding an `OddJob.Pool` to your application.
 
-  All of this module's public functions can be called using the `OddJob` namespace. See
-  the `OddJob` documentation for usage.
+  ## Public functions
+
+  This module defines the public functions `start_link/1` and `child_spec/1`. It is recommended
+  that you call these functions from from `OddJob` module namespace instead. See `OddJob` for
+  documentation and usage.
+
+  #{@usingdoc}
   """
   @moduledoc since: "0.1.0"
 

@@ -178,7 +178,7 @@ defmodule OddJobTest do
       job = async_perform(:work, fn -> 1 + 1 end)
 
       Task.start(fn ->
-        jobs = async_perform_many(:job, 2..5, fn x -> x + x end) ++ [job]
+        jobs = async_perform_many(:work, 2..5, fn x -> x + x end) ++ [job]
         assert_raise(ArgumentError, fn -> await_many(jobs) end)
       end)
 

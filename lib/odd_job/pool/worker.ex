@@ -13,12 +13,12 @@ defmodule OddJob.Pool.Worker do
 
   alias OddJob.Utils
 
-  defstruct [:id, :pool, :pool_pid]
+  defstruct [:id, :pool, :queue]
 
   @type t :: %__MODULE__{
           id: non_neg_integer,
           pool: atom,
-          pool_pid: pid
+          queue: pid
         }
 
   @doc false
@@ -36,10 +36,10 @@ defmodule OddJob.Pool.Worker do
 
   @impl GenServer
   def init(opts) do
-    pool_pid = Utils.pool_name(opts[:pool]) |> GenServer.whereis()
-    state = struct(__MODULE__, opts ++ [pool_pid: pool_pid])
-    Process.monitor(pool_pid)
-    OddJob.Pool.monitor(pool_pid, self())
+    queue = Utils.queue_name(opts[:pool]) |> GenServer.whereis()
+    state = struct(__MODULE__, opts ++ [queue: queue])
+    Process.monitor(queue)
+    OddJob.Queue.monitor(queue, self())
     {:ok, state}
   end
 
@@ -59,25 +59,25 @@ defmodule OddJob.Pool.Worker do
   defp do_perform(pool, job) do
     results = job.function.()
 
-    Utils.pool_name(pool)
+    Utils.queue_name(pool)
     |> GenServer.call(:complete)
 
     %{job | results: results}
   end
 
   @impl GenServer
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{pool_pid: pool_pid} = state)
-      when pid == pool_pid do
-    pool_pid = check_for_new_pool_pid(state.pool)
-    Process.monitor(pool_pid)
-    OddJob.Pool.monitor(pool_pid, self())
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{queue: queue} = state)
+      when pid == queue do
+    queue = check_for_new_queue(state.pool)
+    Process.monitor(queue)
+    OddJob.Queue.monitor(queue, self())
 
-    {:noreply, %{state | pool_pid: pool_pid}}
+    {:noreply, %{state | queue: queue}}
   end
 
-  defp check_for_new_pool_pid(pool) do
-    case Utils.pool_name(pool) |> GenServer.whereis() do
-      nil -> check_for_new_pool_pid(pool)
+  defp check_for_new_queue(pool) do
+    case Utils.queue_name(pool) |> GenServer.whereis() do
+      nil -> check_for_new_queue(pool)
       pid -> pid
     end
   end

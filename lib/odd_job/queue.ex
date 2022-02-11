@@ -1,25 +1,25 @@
-defmodule OddJob.Pool do
+defmodule OddJob.Queue do
   @moduledoc """
-  The `OddJob.Pool` is a `GenServer` that manages the assignments given to the pool workers.
+  The `OddJob.Queue` is a `GenServer` that manages the assignments given to the pool workers.
 
-  The pool receives jobs and assigns them to available workers. If all workers in a pool are
-  currently busy then the pool adds the new jobs to a FIFO queue to be processed as workers
+  The `queue` receives jobs and assigns them to available workers. If all workers in a pool are
+  currently busy then new jobs are added to a FIFO queue to be processed as workers
   become available.
   """
-  @moduledoc since: "0.3.0"
+  @moduledoc since: "0.4.0"
 
   @doc false
   use GenServer
 
-  alias OddJob.{Job, Pool, Utils}
+  alias OddJob.{Job, Utils}
 
-  @spec __struct__ :: OddJob.Pool.t()
+  @spec __struct__ :: OddJob.Queue.t()
   defstruct [:pool, workers: [], assigned: [], jobs: []]
 
   @typedoc """
-  The `OddJob.Pool` struct holds the state of the job pool.
+  The `OddJob.Queue` struct holds the state of the job queue.
 
-    * `:pool` is a term representing the name of the job pool
+    * `:pool` is a term representing the name of the job pool that the `queue` belongs to
 
     * `:workers` is a list of the active worker `pid`s, whether they are busy working or not
 
@@ -39,49 +39,49 @@ defmodule OddJob.Pool do
   @type job :: Job.t()
 
   @doc false
-  def start_link(pool) do
-    GenServer.start_link(__MODULE__, pool, name: Utils.pool_name(pool))
+  def start_link(pool_name) do
+    GenServer.start_link(__MODULE__, pool_name, name: Utils.queue_name(pool_name))
   end
 
   @doc false
   @spec state(atom | pid) :: t
-  def state(pool) do
-    Utils.pool_name(pool)
+  def state(pool_name) do
+    Utils.queue_name(pool_name)
     |> GenServer.call(:state)
   end
 
   @doc false
   @spec monitor(atom | pid, pid) :: :ok
-  def monitor(pool, worker) when is_pid(pool), do: GenServer.cast(pool, {:monitor, worker})
+  def monitor(queue, worker) when is_pid(queue), do: GenServer.cast(queue, {:monitor, worker})
 
-  def monitor(pool, worker) do
-    Utils.pool_name(pool)
+  def monitor(pool_name, worker) do
+    Utils.queue_name(pool_name)
     |> GenServer.cast({:monitor, worker})
   end
 
   @impl GenServer
   @spec init(atom) :: {:ok, t}
-  def init(pool) do
-    state = struct(__MODULE__, pool: pool)
+  def init(pool_name) do
+    state = struct(__MODULE__, pool: pool_name)
     {:ok, state}
   end
 
   @impl GenServer
-  def handle_cast({:monitor, pid}, %Pool{workers: workers, jobs: []} = state) do
+  def handle_cast({:monitor, pid}, %{workers: workers, jobs: []} = state) do
     Process.monitor(pid)
-    {:noreply, %Pool{state | workers: workers ++ [pid]}}
+    {:noreply, %{state | workers: workers ++ [pid]}}
   end
 
   def handle_cast(
         {:monitor, pid},
-        %Pool{workers: workers, jobs: jobs, assigned: assigned} = state
+        %{workers: workers, jobs: jobs, assigned: assigned} = state
       ) do
     Process.monitor(pid)
     workers = workers ++ [pid]
     assigned = assigned ++ [pid]
     [job | rest] = jobs
     GenServer.cast(pid, {:do_perform, job})
-    {:noreply, %Pool{state | workers: workers, assigned: assigned, jobs: rest}}
+    {:noreply, %{state | workers: workers, assigned: assigned, jobs: rest}}
   end
 
   def handle_cast({:perform, job}, state) do
@@ -98,42 +98,42 @@ defmodule OddJob.Pool do
 
   defp do_perform_many(
          [job | rest] = new_jobs,
-         %Pool{jobs: jobs, assigned: assigned, workers: workers} = state
+         %{jobs: jobs, assigned: assigned, workers: workers} = state
        ) do
     available = available_workers(workers, assigned)
 
     if available == [] do
-      %Pool{state | jobs: jobs ++ new_jobs}
+      %{state | jobs: jobs ++ new_jobs}
     else
       [worker | _rest] = available
       GenServer.cast(worker, {:do_perform, job})
-      do_perform_many(rest, %Pool{state | assigned: assigned ++ [worker]})
+      do_perform_many(rest, %{state | assigned: assigned ++ [worker]})
     end
   end
 
-  defp do_perform(job, %Pool{jobs: jobs, assigned: assigned, workers: workers} = state) do
+  defp do_perform(job, %{jobs: jobs, assigned: assigned, workers: workers} = state) do
     available = available_workers(workers, assigned)
 
     if available == [] do
-      %Pool{state | jobs: jobs ++ [job]}
+      %{state | jobs: jobs ++ [job]}
     else
       [worker | _rest] = available
       GenServer.cast(worker, {:do_perform, job})
-      %Pool{state | assigned: assigned ++ [worker]}
+      %{state | assigned: assigned ++ [worker]}
     end
   end
 
   defp available_workers(workers, assigned), do: workers -- assigned
 
   @impl GenServer
-  def handle_call(:complete, {pid, _}, %Pool{assigned: assigned, jobs: []} = state) do
-    {:reply, :ok, %Pool{state | assigned: assigned -- [pid]}}
+  def handle_call(:complete, {pid, _}, %{assigned: assigned, jobs: []} = state) do
+    {:reply, :ok, %{state | assigned: assigned -- [pid]}}
   end
 
-  def handle_call(:complete, {worker, _}, %Pool{jobs: jobs} = state) do
+  def handle_call(:complete, {worker, _}, %{jobs: jobs} = state) do
     [new_job | rest] = jobs
     GenServer.cast(worker, {:do_perform, new_job})
-    {:reply, :ok, %Pool{state | jobs: rest}}
+    {:reply, :ok, %{state | jobs: rest}}
   end
 
   def handle_call(:state, _from, state) do
@@ -143,11 +143,11 @@ defmodule OddJob.Pool do
   @impl GenServer
   def handle_info(
         {:DOWN, ref, :process, pid, _reason},
-        %Pool{workers: workers, assigned: assigned} = state
+        %{workers: workers, assigned: assigned} = state
       ) do
     Process.demonitor(ref, [:flush])
     workers = workers -- [pid]
     assigned = assigned -- [pid]
-    {:noreply, %Pool{state | workers: workers, assigned: assigned}}
+    {:noreply, %{state | workers: workers, assigned: assigned}}
   end
 end

@@ -10,11 +10,11 @@ defmodule OddJob do
 
   @moduledoc since: "0.1.0"
 
-  alias OddJob.{Async, Job, Pool, Registry, Scheduler}
+  alias OddJob.{Async, Job, Queue, Registry, Scheduler}
 
   @type not_found :: {:error, :not_found}
   @type job :: Job.t()
-  @type pool :: Pool.t()
+  @type queue :: Queue.t()
   @type name :: Registry.name()
   @type start_arg :: OddJob.Supervisor.start_arg()
   @type start_option :: OddJob.Supervisor.start_option()
@@ -246,7 +246,7 @@ defmodule OddJob do
   ## Examples
 
       iex> parent = self()
-      iex> :ok = OddJob.perform(:job, fn -> send(parent, :hello) end)
+      iex> :ok = OddJob.perform(OddJob.Job, fn -> send(parent, :hello) end)
       iex> receive do
       ...>   msg -> msg
       ...> end
@@ -258,7 +258,7 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec perform(term, function) :: :ok | not_found
   def perform(pool, function) when is_function(function, 0) do
-    case pool |> pool_name() do
+    case pool |> queue_name() do
       {:error, :not_found} ->
         {:error, :not_found}
 
@@ -284,7 +284,7 @@ defmodule OddJob do
   ## Examples
 
       iex> caller = self()
-      iex> OddJob.perform_many(:job, 1..5, fn x -> send(caller, x) end)
+      iex> OddJob.perform_many(OddJob.Job, 1..5, fn x -> send(caller, x) end)
       iex> for x <- 1..5 do
       ...>   receive do
       ...>     ^x -> x
@@ -299,7 +299,7 @@ defmodule OddJob do
   @spec perform_many(term, list | map, function) :: :ok | not_found
   def perform_many(pool, collection, function)
       when is_enumerable(collection) and is_function(function, 1) do
-    case pool |> pool_name() do
+    case pool |> queue_name() do
       {:error, :not_found} ->
         {:error, :not_found}
 
@@ -335,7 +335,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job = OddJob.async_perform(:job, fn -> :math.exp(100) end)
+      iex> job = OddJob.async_perform(OddJob.Job, fn -> :math.exp(100) end)
       iex> OddJob.await(job)
       2.6881171418161356e43
 
@@ -345,7 +345,7 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec async_perform(term, function) :: job | not_found
   def async_perform(pool, function) when is_function(function, 0) do
-    case pool |> pool_name() do
+    case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Async.perform(pool, function)
     end
@@ -365,7 +365,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> jobs = OddJob.async_perform_many(:job, 1..5, fn x -> x ** 2 end)
+      iex> jobs = OddJob.async_perform_many(OddJob.Job, 1..5, fn x -> x ** 2 end)
       iex> OddJob.await_many(jobs)
       [1, 4, 9, 16, 25]
 
@@ -376,7 +376,7 @@ defmodule OddJob do
   @spec async_perform_many(term, list | map, function) :: [job] | not_found
   def async_perform_many(pool, collection, function)
       when is_enumerable(collection) and is_function(function, 1) do
-    case pool |> pool_name() do
+    case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Async.perform_many(pool, collection, function)
     end
@@ -400,7 +400,7 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.async_perform(:job, fn -> :math.log(2.6881171418161356e43) end)
+      iex> OddJob.async_perform(OddJob.Job, fn -> :math.log(2.6881171418161356e43) end)
       ...> |> OddJob.await()
       100.0
   """
@@ -430,8 +430,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job1 = OddJob.async_perform(:job, fn -> 2 ** 2 end)
-      iex> job2 = OddJob.async_perform(:job, fn -> 3 ** 2 end)
+      iex> job1 = OddJob.async_perform(OddJob.Job, fn -> 2 ** 2 end)
+      iex> job2 = OddJob.async_perform(OddJob.Job, fn -> 3 ** 2 end)
       iex> [job1, job2] |> OddJob.await_many()
       [4, 9]
   """
@@ -453,13 +453,13 @@ defmodule OddJob do
 
   ## Examples
 
-      timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
+      timer_ref = OddJob.perform_after(5000, OddJob.Job, fn -> deferred_job() end)
       Process.read_timer(timer_ref)
       #=> 2836 # time remaining before job is sent to the pool
       OddJob.cancel_timer(timer_ref)
       #=> 1175 # job has been cancelled
 
-      timer_ref = OddJob.perform_after(5000, :job, fn -> deferred_job() end)
+      timer_ref = OddJob.perform_after(5000, OddJob.Job, fn -> deferred_job() end)
       Process.sleep(6000)
       OddJob.cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
@@ -471,7 +471,7 @@ defmodule OddJob do
   @spec perform_after(integer, term, function) :: reference | not_found
   def perform_after(timer, pool, fun)
       when is_integer(timer) and is_function(fun, 0) do
-    case pool |> pool_name() do
+    case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Scheduler.perform_after(timer, pool, fun)
     end
@@ -489,7 +489,7 @@ defmodule OddJob do
   ## Examples
 
       time = DateTime.utc_now() |> DateTime.add(600, :second)
-      OddJob.perform_at(time, :job, fn -> scheduled_job() end)
+      OddJob.perform_at(time, OddJob.Job, fn -> scheduled_job() end)
 
       iex> time = DateTime.utc_now() |> DateTime.add(600, :second)
       iex> OddJob.perform_at(time, :does_not_exist, fn -> "never called" end)
@@ -499,7 +499,7 @@ defmodule OddJob do
   @spec perform_at(DateTime.t(), term, function) :: reference | not_found
   def perform_at(time, pool, fun)
       when is_time(time) and is_function(fun) do
-    case pool |> pool_name() do
+    case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Scheduler.perform_at(time, pool, fun)
     end
@@ -537,67 +537,67 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns a two element tuple `{pid, state}` with the `pid` of the job `pool` as the first element.
-  The second element is the `state` of the pool represented by an `OddJob.Pool` struct.
+  Returns a two element tuple `{pid, state}` with the `pid` of the job `queue` as the first element.
+  The second element is the `state` of the queue represented by an `OddJob.Queue` struct.
 
-  The pool `state` has the following fields:
+  The queue `state` has the following fields:
 
-    * `:workers` - A list of the `pid`s of all workers in the `pool`
+    * `:workers` - A list of the `pid`s of all workers in the pool
 
     * `:assigned` - The `pid`s of the workers currently assigned to jobs
 
     * `:jobs` - A list of `OddJob.Job` structs in the queue awaiting execution
 
-    * `:pool` - The Elixir term naming the `pool`.
+    * `:pool` - The Elixir term naming the `pool` that the queue belongs to
 
-  Returns `{:error, :not_found}` if the `pool` server does not exist at
+  Returns `{:error, :not_found}` if the `queue` server does not exist at
   the time this function is called.
 
   ## Examples
 
-      iex> {pid, %OddJob.Pool{pool: pool}} = OddJob.pool(:job)
+      iex> {pid, %OddJob.Queue{pool: pool}} = OddJob.queue(OddJob.Job)
       iex> is_pid(pid)
       true
       iex> pool
-      :job
+      OddJob.Job
 
-      iex> OddJob.pool(:does_not_exist)
+      iex> OddJob.queue(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec pool(term) :: {pid, pool} | not_found
-  def pool(pool) do
-    name = OddJob.Utils.pool_name(pool)
+  @spec queue(term) :: {pid, queue} | not_found
+  def queue(pool) do
+    name = OddJob.Utils.queue_name(pool)
 
     case GenServer.whereis(name) do
       nil ->
         {:error, :not_found}
 
       pid ->
-        state = Pool.state(pool)
+        state = Queue.state(pool)
         {pid, state}
     end
   end
 
   @doc """
-  Returns the registered name in `:via` for the `pool` process. See the
+  Returns the registered name in `:via` for the `queue` process. See the
   `Registry` module for more information on `:via` process name registration.
 
-  Returns `{:error, :not_found}` if the `pool` server does not exist at
+  Returns `{:error, :not_found}` if the `queue` server does not exist at
   the time this function is called.
 
   ## Examples
 
-      iex> OddJob.pool_name(:job)
-      {:via, Registry, {OddJob.Registry, {:job, :pool}}}
+      iex> OddJob.queue_name(OddJob.Job)
+      {:via, Registry, {OddJob.Registry, {OddJob.Job, :queue}}}
 
-      iex> OddJob.pool_name(:does_not_exist)
+      iex> OddJob.queue_name(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_name(term) :: name | not_found
-  def pool_name(pool) do
-    name = OddJob.Utils.pool_name(pool)
+  @spec queue_name(term) :: name | not_found
+  def queue_name(pool) do
+    name = OddJob.Utils.queue_name(pool)
 
     case GenServer.whereis(name) do
       nil -> {:error, :not_found}
@@ -617,7 +617,7 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.pool_supervisor(:job)
+      OddJob.pool_supervisor(OddJob.Job)
       #=> #PID<0.239.0>
 
       iex> OddJob.pool_supervisor(:does_not_exist)
@@ -641,8 +641,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.pool_supervisor_name(:job)
-      {:via, Registry, {OddJob.Registry, {:job, :pool_sup}}}
+      iex> OddJob.pool_supervisor_name(OddJob.Job)
+      {:via, Registry, {OddJob.Registry, {OddJob.Job, :pool_sup}}}
 
       iex> OddJob.pool_supervisor_name(:does_not_exist)
       {:error, :not_found}
@@ -669,7 +669,7 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.workers(:job)
+      OddJob.workers(OddJob.Job)
       #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
 
       iex> OddJob.workers(:does_not_exist)
@@ -678,7 +678,7 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec workers(term) :: [pid] | not_found
   def workers(pool) do
-    case pool(pool) do
+    case queue(pool) do
       {:error, :not_found} = error -> error
       {_, %{workers: workers}} -> workers
     end

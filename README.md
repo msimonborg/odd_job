@@ -28,11 +28,11 @@ end
 ## Getting started
 
 After installation you can start processing jobs right away. OddJob automatically starts up a supervised job
-pool of 5 workers out of the box with no configuration required. The default name of this job pool is `:job`,
+pool of 5 workers out of the box with no configuration required. The default name of this job pool is `OddJob.Job`,
 and it can be sent work in the following way:
 
 ```elixir
-OddJob.perform(:job, fn -> do_some_work() end)
+OddJob.perform(OddJob.Job, fn -> do_some_work() end)
 ```
 You can skip ahead for more [usage](#usage), or read on for a guide to configuring your job pools.
 
@@ -42,7 +42,7 @@ The default pool can be customized in your config if you want to change the name
 
 ```elixir
 config :odd_job,
-  default_pool: :work, # :job is the default
+  default_pool: :work, # OddJob.Job is the default
   pool_size: 10 # defaults to 5
 ```
 
@@ -85,7 +85,7 @@ config :odd_job,
 ```
 
 Next we'll see how you can [add job pools to your own application's supervision tree](#supervising-job-pools).
-If you don't want OddJob to supervise any pools for you (including the default `:job` pool) then pass `false` 
+If you don't want OddJob to supervise any pools for you (including the default `OddJob.Job` pool) then pass `false` 
 to the `:default_pool` config key:
 
 ```elixir
@@ -245,10 +245,10 @@ crash or exit, the other will crash or exit with the same reason.
 Jobs can be scheduled for later execution with `perform_after/3` and `perform_at/3`:
 
 ```elixir
-OddJob.perform_after(1_000_000, :job, fn -> clean_database() end) # accepts a timer in milliseconds
+OddJob.perform_after(1_000_000, OddJob.Job, fn -> clean_database() end) # accepts a timer in milliseconds
 
 time = DateTime.utc_now |> DateTime.add(60 * 60 * 24, :second) # 24 hours from now
-OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a future DateTime struct
+OddJob.perform_at(time, OddJob.Job, fn -> verify_work_is_done() end) # accepts a future DateTime struct
 ```
 
 The scheduling functions return a unique timer reference which can be read with `Process.read_timer/1` and
@@ -257,7 +257,7 @@ itself by causing the scheduler process to exit. When the timer is up the job wi
 can no longer be aborted.
 
 ```elixir
-ref = OddJob.perform_after(5000, :job, fn -> :will_be_canceled end)
+ref = OddJob.perform_after(5000, OddJob.Job, fn -> :will_be_canceled end)
 
 # somewhere else in your code
 if some_condition() do

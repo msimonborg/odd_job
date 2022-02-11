@@ -57,13 +57,13 @@ defmodule OddJob.Utils do
   def scheduler_sup_name(name), do: via(name, :scheduler_sup)
 
   @doc """
-  Returns the `OddJob.Pool` name in :via for the given `name`.
+  Returns the `OddJob.Queue` name in :via for the given `name`.
 
-      iex> OddJob.Utils.pool_name(:job)
-      {:via, Registry, {OddJob.Registry, {:job, :pool}}}
+      iex> OddJob.Utils.queue_name(:job)
+      {:via, Registry, {OddJob.Registry, {:job, :queue}}}
   """
-  @spec pool_name(term) :: name
-  def pool_name(name), do: via(name, :pool)
+  @spec queue_name(term) :: name
+  def queue_name(name), do: via(name, :queue)
 
   @doc """
   Returns the `OddJob.Pool.Supervisor` name in :via for the given `name`.

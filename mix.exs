@@ -82,9 +82,9 @@ defmodule OddJob.MixProject do
         Processes: [
           OddJob.Async.Proxy,
           OddJob.Async.ProxySupervisor,
-          OddJob.Pool,
           OddJob.Pool.Supervisor,
           OddJob.Pool.Worker,
+          OddJob.Queue,
           OddJob.Registry,
           OddJob.Scheduler,
           OddJob.Scheduler.Supervisor,

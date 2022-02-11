@@ -22,14 +22,8 @@ defmodule OddJob.Application do
       false ->
         []
 
-      default when is_atom(default) and default != true ->
-        [{OddJob, default}]
-
       _ ->
-        raise ArgumentError,
-          message: """
-          `:default_pool` in :odd_job config must be either an atom naming the pool (e.g. `:work`) or else the value `false`
-          """
+        [{OddJob, OddJob.Job}]
     end
   end
 

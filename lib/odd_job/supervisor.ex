@@ -46,7 +46,7 @@ defmodule OddJob.Supervisor do
     children = [
       {OddJob.Async.ProxySupervisor, name},
       {OddJob.Scheduler.Supervisor, name},
-      {OddJob.Pool, name},
+      {OddJob.Queue, name},
       {OddJob.Pool.Supervisor, args}
     ]
 

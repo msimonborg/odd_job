@@ -23,18 +23,16 @@ defmodule OddJob.Application do
         []
 
       nil ->
-        [{OddJob, default_pool_name()}]
+        [OddJob.Pool]
 
       other ->
         raise ArgumentError,
           message: """
-          `:default_pool` cannot be renamed from `#{default_pool_name()}`. Use `false` as the value
+          `:default_pool` cannot be renamed from `OddJob.Pool`. Use `false` as the value
           for `:default_pool` to disable default pools. Got `#{inspect(other)}`
           """
     end
   end
-
-  defp default_pool_name, do: OddJob.Job
 
   defp extra_pools do
     extra_pools = Application.get_env(:odd_job, :extra_pools, [])

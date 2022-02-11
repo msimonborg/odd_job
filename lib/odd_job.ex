@@ -17,9 +17,9 @@ defmodule OddJob do
   @type job :: Job.t()
   @type queue :: Queue.t()
   @type name :: Registry.name()
-  @type start_arg :: OddJob.Supervisor.start_arg()
-  @type start_option :: OddJob.Supervisor.start_option()
-  @type child_spec :: OddJob.Supervisor.child_spec()
+  @type options :: OddJob.Pool.options()
+  @type start_option :: OddJob.Pool.start_option()
+  @type child_spec :: OddJob.Pool.child_spec()
 
   @doc false
   @doc since: "0.4.0"
@@ -28,49 +28,6 @@ defmodule OddJob do
   @doc false
   @doc since: "0.4.0"
   defguard is_time(time) when is_struct(time, DateTime)
-
-  @doc false
-  @doc since: "0.4.0"
-  defmacro __using__(opts) do
-    quote location: :keep, bind_quoted: [opts: opts] do
-      unless Module.has_attribute?(__MODULE__, :doc) do
-        @doc """
-        Returns a specification to start this module under a supervisor.
-        See `Supervisor`.
-        """
-      end
-
-      def child_spec(arg) do
-        default = %{
-          id: __MODULE__,
-          start: {__MODULE__, :start_link, [arg]},
-          type: :supervisor
-        }
-
-        Supervisor.child_spec(default, unquote(Macro.escape(opts)))
-      end
-
-      unless Module.has_attribute?(__MODULE__, :doc) do
-        @doc """
-        Starts an OddJob supervision tree linked to the current process.
-        See `OddJob.start_link/2`.
-        """
-      end
-
-      def start_link([]), do: OddJob.start_link(__MODULE__)
-
-      def start_link(arg) do
-        IO.warn("""
-        Your initial argument was ignored because you have not defined a custom
-        `start_link/1` in #{__MODULE__}.
-        """)
-
-        start_link([])
-      end
-
-      defoverridable child_spec: 1, start_link: 1
-    end
-  end
 
   @doc """
   A macro for creating jobs with an expressive DSL.
@@ -190,11 +147,22 @@ defmodule OddJob do
   See the `Supervisor` module for more about child specs.
   """
   @doc since: "0.1.0"
-  @spec child_spec(start_arg) :: child_spec
-  defdelegate child_spec(start_arg), to: OddJob.Supervisor
+  @spec child_spec(options) :: child_spec
+  def child_spec(opts) when is_list(opts) do
+    name = Keyword.fetch!(opts, :name)
+
+    unless is_atom(name) do
+      raise ArgumentError,
+        message: """
+        Expected `name` to be an atom. Got #{inspect(name)}
+        """
+    end
+
+    OddJob.Pool.child_spec(opts)
+  end
 
   @doc """
-  Starts an `OddJob` pool supervision tree linked to the current process.
+  Starts an `OddJob.Pool` supervision tree linked to the current process.
 
   ## Arguments
 
@@ -228,8 +196,19 @@ defmodule OddJob do
   See `Supervisor` for more on starting supervision trees.
   """
   @doc since: "0.4.0"
-  @spec start_link(pool, [start_option]) :: Supervisor.on_start()
-  defdelegate start_link(name, opts \\ []), to: OddJob.Supervisor
+  @spec start_link(options) :: Supervisor.on_start()
+  def start_link(opts) when is_list(opts) do
+    name = Keyword.fetch!(opts, :name)
+
+    unless is_atom(name) do
+      raise ArgumentError,
+        message: """
+        Expected `name` to be an atom. Got #{inspect(name)}
+        """
+    end
+
+    OddJob.Pool.start_link(opts)
+  end
 
   @doc """
   Performs a fire and forget job.

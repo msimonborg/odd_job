@@ -39,15 +39,6 @@ defmodule OddJob.Utils do
   def extract_pid({:ok, pid}), do: pid
 
   @doc """
-  Returns the `OddJob.Supervisor` name in :via for the given `name`.
-
-      iex> OddJob.Utils.supervisor_name(:job)
-      {:via, Registry, {OddJob.Registry, {:job, :sup}}}
-  """
-  @spec supervisor_name(term) :: name
-  def supervisor_name(name), do: via(name, :sup)
-
-  @doc """
   Returns the `OddJob.Scheduler.Supervisor` name in :via for the given `name`.
 
       iex> OddJob.Utils.scheduler_sup_name(:job)

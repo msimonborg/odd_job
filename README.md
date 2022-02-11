@@ -74,7 +74,7 @@ config :odd_job,
   max_restarts: 5,
   extra_pools: [
     MyApp.Email, # MyApp.Email will use the defaults
-    MyApp.ExternalService: [ # the MyApp.ExternalService pool gets its own config
+    "MyApp.ExternalService": [ # the MyApp.ExternalService pool gets its own config
       pool_size: 10,
       max_restarts: 2
     ]

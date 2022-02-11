@@ -2,7 +2,6 @@ defmodule OddJobTest do
   use ExUnit.Case, async: false
   use ExUnitReceiver, as: :stash
   import OddJob
-  alias OddJob.Utils
   doctest OddJob
 
   setup do
@@ -32,7 +31,7 @@ defmodule OddJobTest do
   describe "start_link/1" do
     test "dynamically starts an OddJob pool supervision tree" do
       {:ok, pid} = start_link(:start_link)
-      assert pid == GenServer.whereis(Utils.supervisor_name(:start_link))
+      assert pid == GenServer.whereis(:start_link)
       caller = self()
       perform(:start_link, fn -> send(caller, "hello from start_link") end)
 

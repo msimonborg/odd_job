@@ -16,9 +16,9 @@ import Config
 #   # :extra_pools defaults to an empty list
 #   extra_pools: [
 #     # An atom will create a pool by that name with the default config
-#     :email,
+#     MyApp.Email,
 #     # Pass a keyword list to override the default config options for the :work pool
-#     work: [
+#     "MyApp.Work": [
 #       pool_size: 5,
 #       max_restarts: 2
 #     ]

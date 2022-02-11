@@ -12,6 +12,7 @@ defmodule OddJob do
 
   alias OddJob.{Async, Job, Queue, Registry, Scheduler}
 
+  @type pool :: atom
   @type not_found :: {:error, :not_found}
   @type job :: Job.t()
   @type queue :: Queue.t()
@@ -61,7 +62,7 @@ defmodule OddJob do
       def start_link(arg) do
         IO.warn("""
         Your initial argument was ignored because you have not defined a custom
-        `start_link/1` in your OddJob module.
+        `start_link/1` in #{__MODULE__}.
         """)
 
         start_link([])
@@ -81,13 +82,14 @@ defmodule OddJob do
   You must `import` or `require` `OddJob` to use macros:
 
       import OddJob
+      alias MyApp.Job
 
-      perform_this :work do
+      perform_this Job do
         some_work()
         some_other_work()
       end
 
-      perform_this :work, do: something_hard()
+      perform_this Job, do: something_hard()
   """
   @doc since: "0.3.0"
   defmacro perform_this(pool, contents)
@@ -125,20 +127,21 @@ defmodule OddJob do
   ## Examples
 
       import OddJob
+      alias MyApp.Job
 
       time = ~T[03:00:00.000000]
-      perform_this :work, at: time do
+      perform_this Job, at: time do
         scheduled_work()
       end
 
-      perform_this :work, after: 5000, do: something_important()
+      perform_this Job, after: 5000, do: something_important()
 
-      perform_this :work, :async do
+      perform_this Job, :async do
         get_data()
       end
       |> await()
 
-      iex> (perform_this :work, :async, do: 10 ** 2) |> await()
+      iex> (perform_this MyApp.Job, :async, do: 10 ** 2) |> await()
       100
   """
   @doc since: "0.3.0"
@@ -161,16 +164,16 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> children = [OddJob.child_spec(:media)]
-      [%{id: {OddJob, :media}, start: {OddJob.Supervisor, :start_link, [:media, []]}, type: :supervisor}]
+      iex> children = [OddJob.child_spec(MyApp.Media)]
+      [%{id: {OddJob, MyApp.Media}, start: {OddJob.Supervisor, :start_link, [MyApp.Media, []]}, type: :supervisor}]
       iex> {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
-      iex> OddJob.workers(:media) |> length()
+      iex> OddJob.workers(MyApp.Media) |> length()
       5
 
   Normally you would start an `OddJob` pool under a supervision tree with a child specification tuple
   and not call `child_spec/1` directly.
 
-      children = [{OddJob, :media}]
+      children = [{OddJob, MyApp.Media}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
   ## Arguments
@@ -178,7 +181,7 @@ defmodule OddJob do
   The `start_arg`, whether passed directly to `child_spec/1` or used as the second element of a child spec tuple,
   can be one of the following:
 
-    * A `name` can be any Elixir term which will be the name of the pool. Use this if you want to start a pool
+    * A `name` must be an atom and will be the name of the pool. Use this if you want to start a pool
     with the default config options.
 
     * A keyword list of options. `:name` is a required key and will name the pool. The other available
@@ -195,7 +198,7 @@ defmodule OddJob do
 
   ## Arguments
 
-    * `name` - The name of the pool, which can be any Elixir term. This argument is required.
+    * `name` - An atom that names the pool. This argument is required.
 
     * `opts` - A keyword list of options. These options will override the default config. The available
     options are:
@@ -212,20 +215,20 @@ defmodule OddJob do
 
   You can start an `OddJob` pool dynamically with `start_link/2` to start processing concurrent jobs:
 
-      iex> {:ok, _pid} = OddJob.start_link(:event, pool_size: 10)
-      iex> OddJob.async_perform(:event, fn -> :do_something end) |> OddJob.await()
+      iex> {:ok, _pid} = OddJob.start_link(MyApp.Event, pool_size: 10)
+      iex> OddJob.async_perform(MyApp.Event, fn -> :do_something end) |> OddJob.await()
       :do_something
 
   In most cases you would instead start your pools inside a supervision tree:
 
-      children = [{OddJob, name: :event, pool_size: 10}]
+      children = [{OddJob, name: MyApp.Event, pool_size: 10}]
       Supervisor.start_link(children, strategy: :one_for_one)
 
   The second element of the child spec tuple must be one of the `start_arg`s accepted by `child_spec/1`.
   See `Supervisor` for more on starting supervision trees.
   """
   @doc since: "0.4.0"
-  @spec start_link(term, [start_option]) :: Supervisor.on_start()
+  @spec start_link(pool, [start_option]) :: Supervisor.on_start()
   defdelegate start_link(name, opts \\ []), to: OddJob.Supervisor
 
   @doc """
@@ -256,8 +259,8 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec perform(term, function) :: :ok | not_found
-  def perform(pool, function) when is_function(function, 0) do
+  @spec perform(pool, function) :: :ok | not_found
+  def perform(pool, function) when is_atom(pool) and is_function(function, 0) do
     case pool |> queue_name() do
       {:error, :not_found} ->
         {:error, :not_found}
@@ -296,9 +299,9 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec perform_many(term, list | map, function) :: :ok | not_found
+  @spec perform_many(pool, list | map, function) :: :ok | not_found
   def perform_many(pool, collection, function)
-      when is_enumerable(collection) and is_function(function, 1) do
+      when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
     case pool |> queue_name() do
       {:error, :not_found} ->
         {:error, :not_found}
@@ -343,8 +346,8 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec async_perform(term, function) :: job | not_found
-  def async_perform(pool, function) when is_function(function, 0) do
+  @spec async_perform(pool, function) :: job | not_found
+  def async_perform(pool, function) when is_atom(pool) and is_function(function, 0) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Async.perform(pool, function)
@@ -373,9 +376,9 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec async_perform_many(term, list | map, function) :: [job] | not_found
+  @spec async_perform_many(pool, list | map, function) :: [job] | not_found
   def async_perform_many(pool, collection, function)
-      when is_enumerable(collection) and is_function(function, 1) do
+      when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Async.perform_many(pool, collection, function)
@@ -468,9 +471,9 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_after(integer, term, function) :: reference | not_found
+  @spec perform_after(integer, pool, function) :: reference | not_found
   def perform_after(timer, pool, fun)
-      when is_integer(timer) and is_function(fun, 0) do
+      when is_atom(pool) and is_integer(timer) and is_function(fun, 0) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Scheduler.perform_after(timer, pool, fun)
@@ -496,9 +499,9 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_at(DateTime.t(), term, function) :: reference | not_found
+  @spec perform_at(DateTime.t(), pool, function) :: reference | not_found
   def perform_at(time, pool, fun)
-      when is_time(time) and is_function(fun) do
+      when is_atom(pool) and is_time(time) and is_function(fun) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
       _ -> Scheduler.perform_at(time, pool, fun)
@@ -565,8 +568,8 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec queue(term) :: {pid, queue} | not_found
-  def queue(pool) do
+  @spec queue(pool) :: {pid, queue} | not_found
+  def queue(pool) when is_atom(pool) do
     name = OddJob.Utils.queue_name(pool)
 
     case GenServer.whereis(name) do
@@ -595,8 +598,8 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec queue_name(term) :: name | not_found
-  def queue_name(pool) do
+  @spec queue_name(pool) :: name | not_found
+  def queue_name(pool) when is_atom(pool) do
     name = OddJob.Utils.queue_name(pool)
 
     case GenServer.whereis(name) do
@@ -624,8 +627,8 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor(term) :: pid | not_found
-  def pool_supervisor(pool) do
+  @spec pool_supervisor(pool) :: pid | not_found
+  def pool_supervisor(pool) when is_atom(pool) do
     case pool |> pool_supervisor_name() |> GenServer.whereis() do
       nil -> {:error, :not_found}
       pid -> pid
@@ -648,8 +651,8 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor_name(term) :: name | not_found
-  def pool_supervisor_name(pool) do
+  @spec pool_supervisor_name(pool) :: name | not_found
+  def pool_supervisor_name(pool) when is_atom(pool) do
     name = OddJob.Utils.pool_supervisor_name(pool)
 
     case GenServer.whereis(name) do
@@ -676,11 +679,14 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.1.0"
-  @spec workers(term) :: [pid] | not_found
+  @spec workers(pool) :: [pid] | not_found
   def workers(pool) do
-    case queue(pool) do
-      {:error, :not_found} = error -> error
-      {_, %{workers: workers}} -> workers
+    case pool |> OddJob.Utils.pool_supervisor_name() |> GenServer.whereis() do
+      nil ->
+        {:error, :not_found}
+
+      sup ->
+        for {_id, pid, :worker, [OddJob.Pool.Worker]} <- Supervisor.which_children(sup), do: pid
     end
   end
 
@@ -698,10 +704,8 @@ defmodule OddJob do
       true
   """
   @doc since: "0.4.0"
-  @spec whereis(term) :: pid | nil
+  @spec whereis(pool) :: pid | nil
   def whereis(pool) do
-    pool
-    |> OddJob.Utils.supervisor_name()
-    |> GenServer.whereis()
+    GenServer.whereis(pool)
   end
 end

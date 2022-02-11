@@ -47,6 +47,12 @@ defmodule OddJob.Application do
 
           name when is_atom(name) ->
             name
+
+          name ->
+            raise ArgumentError,
+              message: """
+              OddJob pool name must be an atom, got #{inspect(name)}
+              """
         end
 
       {OddJob, start_arg}

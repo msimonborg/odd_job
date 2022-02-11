@@ -10,9 +10,8 @@ defmodule OddJob.Supervisor do
 
   use Supervisor
 
-  alias OddJob.Utils
-
-  @type start_arg :: term | [{:name, term} | start_option]
+  @type name :: atom
+  @type start_arg :: name | [{:name, name} | start_option]
   @type child_spec :: Supervisor.child_spec()
   @type start_option ::
           {:pool_size, non_neg_integer}
@@ -24,6 +23,13 @@ defmodule OddJob.Supervisor do
   def child_spec(opts) when is_list(opts) do
     {name, opts} = Keyword.pop!(opts, :name)
 
+    unless is_atom(name) do
+      raise ArgumentError,
+        message: """
+        Expected `name` to be an atom. Got #{inspect(name)}
+        """
+    end
+
     opts
     |> super()
     |> Supervisor.child_spec(
@@ -32,13 +38,13 @@ defmodule OddJob.Supervisor do
     )
   end
 
-  def child_spec(name), do: child_spec(name: name)
+  def child_spec(name) when is_atom(name), do: child_spec(name: name)
 
   @doc false
-  @spec start_link(term, [start_option]) :: Supervisor.on_start()
-  def start_link(name, opts \\ []) when is_list(opts) do
+  @spec start_link(name, [start_option]) :: Supervisor.on_start()
+  def start_link(name, opts \\ []) when is_atom(name) and is_list(opts) do
     init_opts = Keyword.delete(opts, :name)
-    Supervisor.start_link(__MODULE__, [name, init_opts], name: Utils.supervisor_name(name))
+    Supervisor.start_link(__MODULE__, [name, init_opts], name: name)
   end
 
   @impl Supervisor

@@ -37,17 +37,16 @@ defmodule OddJob.CallbacksTest do
       use OddJob
 
       def start_link(init_arg) do
-        name = String.to_atom(init_arg)
-        OddJob.start_link(name, pool_size: 10)
+        OddJob.start_link(AnotherName, pool_size: init_arg)
       end
     end
 
     test "can customize initialization of the job module" do
-      {:ok, pid} = StartLinkJob.start_link("hello world")
+      {:ok, pid} = StartLinkJob.start_link(20)
 
-      assert OddJob.Utils.supervisor_name("hello world") |> GenServer.whereis() == nil
-      assert OddJob.Utils.supervisor_name(:"hello world") |> GenServer.whereis() == pid
-      assert OddJob.workers(:"hello world") |> length() == 10
+      assert GenServer.whereis(StartLinkJob) == nil
+      assert GenServer.whereis(AnotherName) == pid
+      assert OddJob.workers(AnotherName) |> length() == 20
     end
   end
 

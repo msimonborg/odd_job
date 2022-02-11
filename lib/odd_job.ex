@@ -138,16 +138,16 @@ defmodule OddJob do
 
   ## Options
 
-    * `name` - An atom that names the pool. This argument is required.
+    * `:name` - An `atom` that names the pool. This argument is required.
 
-    * `pool_size: integer` - the number of concurrent workers in the pool. Defaults to 5 or your application's
+    * `:pool_size` - A positive `integer`, the number of concurrent workers in the pool. Defaults to 5 or your application's
     config value.
 
-    * `max_restarts: integer` - the number of worker restarts allowed in a given timeframe before all
+    * `:max_restarts` - A positive `integer`, the number of worker restarts allowed in a given timeframe before all
     of the workers are restarted. Set a higher number if your jobs have a high rate of expected failure.
     Defaults to 5 or your application's config value.
 
-    * `max_seconds: integer` - the timeframe in seconds in which `max_restarts` applies. Defaults to 3
+    * `:max_seconds` - A positive `integer`, the timeframe in seconds in which `max_restarts` applies. Defaults to 3
     or your application's config value. See `Supervisor` for more info on restart intensity options.
 
   See the `Supervisor` module for more about child specs.

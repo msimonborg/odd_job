@@ -22,6 +22,13 @@ defmodule OddJob.Pool.Worker do
         }
 
   @doc false
+  def child_spec(opts) do
+    opts
+    |> super()
+    |> Supervisor.child_spec(id: opts[:id])
+  end
+
+  @doc false
   def start_link(opts) do
     name = Utils.worker_name(opts[:pool], opts[:id])
     GenServer.start_link(__MODULE__, opts, name: name)
@@ -34,13 +41,6 @@ defmodule OddJob.Pool.Worker do
     Process.monitor(pool_pid)
     OddJob.Pool.monitor(pool_pid, self())
     {:ok, state}
-  end
-
-  @doc false
-  def child_spec(opts) do
-    opts
-    |> super()
-    |> Supervisor.child_spec(id: opts[:id])
   end
 
   @impl GenServer
@@ -68,10 +68,17 @@ defmodule OddJob.Pool.Worker do
   @impl GenServer
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %{pool_pid: pool_pid} = state)
       when pid == pool_pid do
-    pool_pid = Utils.pool_name(state.pool) |> GenServer.whereis()
+    pool_pid = check_for_new_pool_pid(state.pool)
     Process.monitor(pool_pid)
     OddJob.Pool.monitor(pool_pid, self())
 
     {:noreply, %{state | pool_pid: pool_pid}}
+  end
+
+  defp check_for_new_pool_pid(pool) do
+    case Utils.pool_name(pool) |> GenServer.whereis() do
+      nil -> check_for_new_pool_pid(pool)
+      pid -> pid
+    end
   end
 end

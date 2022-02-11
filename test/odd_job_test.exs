@@ -291,7 +291,7 @@ defmodule OddJobTest do
   describe "perform_at/3" do
     test "schedules a job at the specified time" do
       caller = self()
-      t1 = Time.add(Time.utc_now(), 100, :millisecond)
+      t1 = DateTime.add(DateTime.utc_now(), 100, :millisecond)
       timer_ref = perform_at(t1, :work, fn -> send(caller, :finished) end)
       assert Process.read_timer(timer_ref) <= 100
 
@@ -300,9 +300,9 @@ defmodule OddJobTest do
           msg -> msg
         end
 
-      t2 = Time.utc_now()
+      t2 = DateTime.utc_now()
       assert Process.read_timer(timer_ref) == false
-      assert Time.diff(t2, t1, :millisecond) <= 2
+      assert DateTime.diff(t2, t1, :millisecond) <= 2
       assert results == :finished
     end
 
@@ -317,7 +317,7 @@ defmodule OddJobTest do
 
     test "scheduled jobs can be canceled" do
       caller = self()
-      time = Time.add(Time.utc_now(), 25, :millisecond)
+      time = DateTime.add(DateTime.utc_now(), 25, :millisecond)
       timer_ref = perform_at(time, :work, fn -> send(caller, :delivered) end)
       OddJob.cancel_timer(timer_ref)
 

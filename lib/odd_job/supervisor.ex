@@ -20,6 +20,21 @@ defmodule OddJob.Supervisor do
           | {:max_seconds, non_neg_integer}
 
   @doc false
+  @spec child_spec(start_arg) :: child_spec
+  def child_spec(opts) when is_list(opts) do
+    {name, opts} = Keyword.pop!(opts, :name)
+
+    opts
+    |> super()
+    |> Supervisor.child_spec(
+      id: {OddJob, name},
+      start: {__MODULE__, :start_link, [name, opts]}
+    )
+  end
+
+  def child_spec(name), do: child_spec(name: name)
+
+  @doc false
   @spec start_link(term, [start_option]) :: Supervisor.on_start()
   def start_link(name, opts \\ []) when is_list(opts) do
     init_opts = Keyword.delete(opts, :name)
@@ -37,19 +52,4 @@ defmodule OddJob.Supervisor do
 
     Supervisor.init(children, strategy: :one_for_one)
   end
-
-  @doc false
-  def child_spec(opts) when is_list(opts) do
-    {name, opts} = Keyword.pop!(opts, :name)
-
-    opts
-    |> super()
-    |> Supervisor.child_spec(
-      id: {OddJob, name},
-      start: {__MODULE__, :start_link, [name, opts]}
-    )
-  end
-
-  @spec child_spec(start_arg) :: child_spec
-  def child_spec(name), do: child_spec(name: name)
 end

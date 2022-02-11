@@ -3,21 +3,23 @@
 ## v0.4.0-dev
 
 ### Changes
-- Different arguments for `OddJob.child_spec`. Accepts an atom to name the pool *or* a keyword list of options that must contain a `:name` key, plus optional overrides.
+- Different arguments for `OddJob.child_spec`. Accepts term to name the pool *or* a keyword list of options that must contain a `:name` key, plus optional overrides.
 - Change `OddJob.supervisor_id` to `OddJob.pool_supervisor_name/1`
 - Change `OddJob.supervisor` to `OddJob.pool_supervisor/1`
 - Change `OddJob.pool_id` to `OddJob.pool_name/1`
 - Change `OddJob.Async.ProxyServer` to `OddJob.Async.Proxy`
-- In the `OddJob` module `perform/2`, `perform_many/3`, `async_perform/2`, `async_perform_many/3`, `perform_after/3`, `perform_at/3`, `pool/1`, `pool_name/1`, `pool_supervisor/1`, `pool_supervisor_name/1`, and `workers/1` will now return `{:error, :not_found}` if the pool does not exist a the time of calling. 
+- In the `OddJob` module `perform/2`, `perform_many/3`, `async_perform/2`, `async_perform_many/3`, `perform_after/3`, `perform_at/3`, `pool/1`, `pool_name/1`, `pool_supervisor/1`, `pool_supervisor_name/1`, and `workers/1` will now return `{:error, :not_found}` if the pool does not exist at the time of calling. 
+- `OddJob.perform_at/3` now only accepts a DateTime struct as the first argument.
 
 ### Additions
 - New functions `perform_many/3` and `async_perform_many/3` can more efficiently enqueue large batches of jobs
-- New public function `OddJob.start_link/2` can be used to dynamically start OddJob pools
-- `use OddJob` to create module based job pools
-- Configuration options for `max_restarts` and `max_seconds`
+- New public function `OddJob.start_link/2` can be used to start OddJob pools
+- `use OddJob` to create module based job pools with runtime configuration and custom start options for the top level
+supervisor
+- New options for `max_restarts` and `max_seconds` join `pool_size` as configuration for the worker supervisor
 - Any pool can override the default config and have its own configuration
 - Config can be set for user-supervised pools by passing an options list to the `OddJob` child spec
-tuple: `{OddJob, name: :work, pool_size: 10}`, or to `OddJob.start_link/2`, or to `use OddJob` for module based pools.
+tuple: `{OddJob, name: :work, pool_size: 10}`, or to `OddJob.start_link/2` for module-based pools.
 
 ### Improvements
 - Use `:via` process naming to allow any term to be used for naming pools, and to avoid dynamic generation of atoms.

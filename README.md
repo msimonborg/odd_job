@@ -94,8 +94,20 @@ config :odd_job, default_pool: false
 
 ## Supervising job pools
 
-To supervise your own job pools you can add a tuple in the form of `{OddJob, name}` (where `name` is an atom)
-directly to the top level of your application's supervision tree or any other list of child specs for a supervisor:
+You can dynamically start a job pool linked to the current process by calling `OddJob.start_link/2`:
+
+```elixir
+{:ok, pid} = OddJob.start_link(:work, pool_size: 10)
+OddJob.perform(:work, fn -> do_something() end)
+#=> :ok
+```
+
+The first argument to the function is the name of the pool, the second argument is a keyword list
+of options to configure the pool. See the `OddJob.start_link/2` documentation for more details.
+
+In most cases you'll want to supervise your job pools, which you can do by adding a tuple in
+the form of `{OddJob, name}` (where `name` is an atom) directly to the top level of your 
+application's supervision tree or any other list of child specs for a supervisor:
 
 ```elixir
 defmodule MyApp.Application do
@@ -134,9 +146,77 @@ def start(_type, _args) do
 end
 ```
 
-All of the previously mentioned config options can be combined. You can have a default pool with an optional
-custom name, extra pools in the OddJob supervision tree, and pools to be supervised by your own application,
-all of which can either use the default config or their own overrides.
+## Module-based pools
+
+You may want to configure your pool at runtime, or wrap your logic in a custom API. Module-based
+pools are great for this. Invoking `use OddJob` defines a `child_spec/1` function that can be
+used to start your pool under a supervisor.
+
+Imagine you want to start a job pool with a dynamically configurable pool size:
+
+```elixir
+defmodule MyApp.Job do
+  use OddJob
+
+  def start_link(init_arg) do
+    OddJob.start_link(__MODULE__, pool_size: init_arg)
+  end
+
+  # Client API
+
+  def send_email(user) do
+    OddJob.perform(__MODULE__, fn -> MyApp.Mailer.send(user) end)
+  end
+end
+```
+
+Now you can supervise your pool and set the pool size in a child spec tuple:
+
+```elixir
+children = [
+  {MyApp.Job, 20}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+You can also skip the initial argument by passing `MyApp.Job` on its own:
+
+```elixir
+# in my_app/application.ex
+
+children = [
+  MyApp.Job # Same as {MyApp.Job, []}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+
+# in my_app/job.ex
+
+defmodule MyApp.Job do
+  use OddJob
+
+  def start_link(_init_arg) do
+    OddJob.start_link(__MODULE__)
+  end
+end
+```
+
+For convenience, `use OddJob` automatically defines an overridable `start_link/1` function just like
+the one above, that ignores the initial argument and names the pool after the module, with the default
+configuration options.
+
+You can pass any supervision `start options` to `use OddJob`:
+```elixir
+use OddJob, restart: :transient, shutdown: :brutal_kill
+``` 
+See the `Supervisor` module for more info
+on supervision start options.
+
+All of the previously mentioned config options can be combined. You can have a 
+default pool with an optional custom name, extra pools in the OddJob supervision tree, and pools to 
+be supervised by your own application, all of which can either use the default config or their own 
+overrides.
 
 ## Usage
 
@@ -167,8 +247,8 @@ Jobs can be scheduled for later execution with `perform_after/3` and `perform_at
 ```elixir
 OddJob.perform_after(1_000_000, :job, fn -> clean_database() end) # accepts a timer in milliseconds
 
-time = ~T[03:00:00.000000]
-OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a valid Time or DateTime struct
+time = DateTime.utc_now |> DateTime.add(60 * 60 * 24, :second) # 24 hours from now
+OddJob.perform_at(time, :job, fn -> verify_work_is_done() end) # accepts a future DateTime struct
 ```
 
 The scheduling functions return a unique timer reference which can be read with `Process.read_timer/1` and

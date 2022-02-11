@@ -40,7 +40,7 @@ defmodule OddJob.Scheduler do
 
   @doc false
   @spec perform_at(time, atom, function) :: reference
-  def perform_at(time, pool, fun) do
+  def perform_at(time, pool, fun) when is_struct(time, DateTime) do
     pool
     |> Utils.scheduler_sup_name()
     |> DynamicSupervisor.start_child(@name)
@@ -80,19 +80,7 @@ defmodule OddJob.Scheduler do
     {:reply, timer_ref, state}
   end
 
-  def handle_call({:perform_at, time, pool, fun}, _, state) when is_struct(time, Time) do
-    timer_ref =
-      Time.utc_now()
-      |> Time.diff(time, :millisecond)
-      |> abs()
-      |> set_timer(:perform, pool, fun)
-      |> register()
-      |> set_timeout()
-
-    {:reply, timer_ref, state}
-  end
-
-  def handle_call({:perform_at, time, pool, fun}, _, state) when is_struct(time, DateTime) do
+  def handle_call({:perform_at, time, pool, fun}, _, state) do
     timer_ref =
       DateTime.utc_now()
       |> DateTime.diff(time, :millisecond)

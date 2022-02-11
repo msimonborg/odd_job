@@ -19,10 +19,12 @@ defmodule OddJob.Pool do
   @typedoc """
   The `OddJob.Pool` struct holds the state of the job pool.
 
-    * `:id` is an atom representing the registered name of the pool process
-    * `:pool` is an atom representing the name of the job pool
+    * `:pool` is a term representing the name of the job pool
+
     * `:workers` is a list of the active worker `pid`s, whether they are busy working or not
+
     * `:assigned` is a list of the worker `pid`s that are currently assigned to a job
+
     * `:jobs` is a list of `OddJob.Job` structs representing the jobs that are queued to be performed
       when workers are available
   """

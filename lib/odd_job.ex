@@ -26,15 +26,12 @@ defmodule OddJob do
 
   @doc false
   @doc since: "0.4.0"
-  defguard is_time(time) when is_struct(time, Time) or is_struct(time, DateTime)
+  defguard is_time(time) when is_struct(time, DateTime)
 
   @doc false
   @doc since: "0.4.0"
   defmacro __using__(opts) do
-    keys = [:name, :pool_size, :max_restarts, :max_seconds]
-    {sup_opts, start_opts} = Keyword.split(opts, keys)
-
-    quote location: :keep, bind_quoted: [sup_opts: sup_opts, start_opts: start_opts] do
+    quote location: :keep, bind_quoted: [opts: opts] do
       unless Module.has_attribute?(__MODULE__, :doc) do
         @doc """
         Returns a specification to start this module under a supervisor.
@@ -42,23 +39,15 @@ defmodule OddJob do
         """
       end
 
-      def child_spec(arg) when is_list(arg) do
-        spec =
-          Keyword.merge([name: __MODULE__], unquote(Macro.escape(sup_opts)))
-          |> Keyword.merge(arg)
-          |> OddJob.child_spec()
+      def child_spec(arg) do
+        default = %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [arg]},
+          type: :supervisor
+        }
 
-        start =
-          spec.start
-          |> Tuple.delete_at(0)
-          |> Tuple.insert_at(0, __MODULE__)
-
-        opts = Keyword.merge([start: start], unquote(Macro.escape(start_opts)))
-
-        Supervisor.child_spec(spec, opts)
+        Supervisor.child_spec(default, unquote(Macro.escape(opts)))
       end
-
-      def child_spec(arg) when is_atom(arg), do: child_spec(name: arg)
 
       unless Module.has_attribute?(__MODULE__, :doc) do
         @doc """
@@ -67,9 +56,18 @@ defmodule OddJob do
         """
       end
 
-      def start_link(name, opts), do: OddJob.start_link(name, opts)
+      def start_link([]), do: OddJob.start_link(__MODULE__)
 
-      defoverridable child_spec: 1, start_link: 2
+      def start_link(arg) do
+        IO.warn("""
+        Your initial argument was ignored because you have not defined a custom
+        `start_link/1` in your OddJob module.
+        """)
+
+        start_link([])
+      end
+
+      defoverridable child_spec: 1, start_link: 1
     end
   end
 
@@ -482,8 +480,7 @@ defmodule OddJob do
   @doc """
   Sends a job to the `pool` at the given `time`.
 
-  `time` can be a `Time` or a `DateTime` struct. If a `Time` struct is received, then
-  the job will be performed the next time the clock strikes the given time. The timer is executed
+  `time` must be a `DateTime` struct for a time in the future. The timer is executed
   under a separate supervised process, so if the caller crashes the job will still be performed.
   A timer reference is returned, which can be read with `Process.read_timer/1` or canceled with
   `OddJob.cancel_timer/1`. Returns `{:error, :not_found}` if the `pool` server does not exist at
@@ -491,15 +488,15 @@ defmodule OddJob do
 
   ## Examples
 
-      time = Time.utc_now() |> Time.add(600, :second)
+      time = DateTime.utc_now() |> DateTime.add(600, :second)
       OddJob.perform_at(time, :job, fn -> scheduled_job() end)
 
-      iex> time = Time.utc_now() |> Time.add(600, :second)
+      iex> time = DateTime.utc_now() |> DateTime.add(600, :second)
       iex> OddJob.perform_at(time, :does_not_exist, fn -> "never called" end)
       {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_at(Time.t() | DateTime.t(), term, function) :: reference | not_found
+  @spec perform_at(DateTime.t(), term, function) :: reference | not_found
   def perform_at(time, pool, fun)
       when is_time(time) and is_function(fun) do
     case pool |> pool_name() do
@@ -540,7 +537,8 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the `pid` and `state` of the job `pool`.
+  Returns a two element tuple `{pid, state}` with the `pid` of the job `pool` as the first element.
+  The second element is the `state` of the pool represented by an `OddJob.Pool` struct.
 
   The pool `state` has the following fields:
 
@@ -684,5 +682,26 @@ defmodule OddJob do
       {:error, :not_found} = error -> error
       {_, %{workers: workers}} -> workers
     end
+  end
+
+  @doc """
+  Returns the `pid` of the top level supervisor in the `pool` supervision tree, `nil`
+  if a process can't be found.
+
+  ## Example
+
+      iex> {:ok, pid} = OddJob.start_link(:whereis)
+      iex> OddJob.whereis(:whereis) == pid
+      true
+
+      iex> OddJob.whereis(:where_it_is_not) == nil
+      true
+  """
+  @doc since: "0.4.0"
+  @spec whereis(term) :: pid | nil
+  def whereis(pool) do
+    pool
+    |> OddJob.Utils.supervisor_name()
+    |> GenServer.whereis()
   end
 end

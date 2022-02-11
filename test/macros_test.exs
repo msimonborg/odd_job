@@ -48,10 +48,10 @@ defmodule MacrosTest do
   describe "perform_this/3 at" do
     test "performs a job at the desired time" do
       caller = self()
-      time = Time.add(Time.utc_now(), 10, :millisecond)
+      time = DateTime.add(DateTime.utc_now(), 10, :millisecond)
 
       perform_this :work, at: time do
-        send(caller, Time.utc_now())
+        send(caller, DateTime.utc_now())
       end
 
       result =
@@ -59,21 +59,21 @@ defmodule MacrosTest do
           x -> x
         end
 
-      assert Time.diff(result, time) <= 1
+      assert DateTime.diff(result, time) <= 1
     end
 
     test "can receive a keyword list instead of a do block" do
       caller = self()
-      time = Time.add(Time.utc_now(), 10, :millisecond)
+      time = DateTime.add(DateTime.utc_now(), 10, :millisecond)
 
-      perform_this(:work, at: time, do: send(caller, Time.utc_now()))
+      perform_this(:work, at: time, do: send(caller, DateTime.utc_now()))
 
       result =
         receive do
           x -> x
         end
 
-      assert Time.diff(result, time) <= 1
+      assert DateTime.diff(result, time) <= 1
     end
   end
 

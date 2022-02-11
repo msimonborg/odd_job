@@ -6,9 +6,9 @@
 - Different arguments for `OddJob.child_spec`. Accepts term to name the pool *or* a keyword list of options that must contain a `:name` key, plus optional overrides.
 - Change `OddJob.supervisor_id` to `OddJob.pool_supervisor_name/1`
 - Change `OddJob.supervisor` to `OddJob.pool_supervisor/1`
-- Change `OddJob.pool_id` to `OddJob.pool_name/1`
+- Change `OddJob.pool_id` to `OddJob.queue_name/1`
 - Change `OddJob.Async.ProxyServer` to `OddJob.Async.Proxy`
-- In the `OddJob` module `perform/2`, `perform_many/3`, `async_perform/2`, `async_perform_many/3`, `perform_after/3`, `perform_at/3`, `pool/1`, `pool_name/1`, `pool_supervisor/1`, `pool_supervisor_name/1`, and `workers/1` will now return `{:error, :not_found}` if the pool does not exist at the time of calling. 
+- In the `OddJob` module `perform/2`, `perform_many/3`, `async_perform/2`, `async_perform_many/3`, `perform_after/3`, `perform_at/3`, `queue/1`, `queue_name/1`, `pool_supervisor/1`, `pool_supervisor_name/1`, and `workers/1` will now return `{:error, :not_found}` if the pool does not exist at the time of calling. 
 - `OddJob.perform_at/3` now only accepts a DateTime struct as the first argument.
 - Revert previous `pool` usage in functions to `queue`, and change `OddJob.Pool` to `OddJob.Queue`
 

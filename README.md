@@ -38,11 +38,10 @@ You can skip ahead for more [usage](#usage), or read on for a guide to configuri
 
 ## Configuration
 
-The default pool can be customized in your config if you want to change the name or pool size:
+The default pool can be customized in your config if you want to change the pool size:
 
 ```elixir
 config :odd_job,
-  default_pool: :work, # OddJob.Job is the default
   pool_size: 10 # defaults to 5
 ```
 
@@ -52,7 +51,6 @@ default to the `Supervisor` defaults (`max_restarts: 3, max_seconds: 5`) and can
 
 ```elixir
 config :odd_job,
-  default_pool: :dangerous_work,
   pool_size: 50,
   max_restarts: 10,
   max_seconds: 2
@@ -64,7 +62,7 @@ You can add extra pools to be supervised by the OddJob application supervision t
 
 ```elixir
 config :odd_job,
-  extra_pools: [:email, :external_app]
+  extra_pools: [MyApp.Email, MyApp.ExternalService]
 ```
 
 By default, extra pools will be configured with the same options as your default pool. Luckily, extra pools
@@ -72,12 +70,11 @@ can receive their own list of overrides:
 
 ```elixir
 config :odd_job,
-  default_pool: :work,
   pool_size: 50,
   max_restarts: 5,
   extra_pools: [
-    :email, # :email will use the defaults
-    external_app: [ # the :external_app pool gets its own config
+    MyApp.Email, # MyApp.Email will use the defaults
+    MyApp.ExternalService: [ # the MyApp.ExternalService pool gets its own config
       pool_size: 10,
       max_restarts: 2
     ]
@@ -94,11 +91,11 @@ config :odd_job, default_pool: false
 
 ## Supervising job pools
 
-You can dynamically start a job pool linked to the current process by calling `OddJob.start_link/2`:
+You can dynamically start a new job pool linked to the current process by calling `OddJob.start_link/2`:
 
 ```elixir
-{:ok, pid} = OddJob.start_link(:work, pool_size: 10)
-OddJob.perform(:work, fn -> do_something() end)
+{:ok, pid} = OddJob.start_link(MyApp.Email, pool_size: 10)
+OddJob.perform(MyApp.Email, fn -> do_something() end)
 #=> :ok
 ```
 
@@ -116,8 +113,8 @@ defmodule MyApp.Application do
   def start(_type, _args) do
 
     children = [
-      {OddJob, :email},
-      {OddJob, :external_app}
+      {OddJob, MyApp.Email},
+      {OddJob, MyApp.ExternalService}
     ]
 
     opts = [strategy: :one_for_one, name: MyApp.Supervisor]
@@ -126,8 +123,8 @@ defmodule MyApp.Application do
 end
 ```
 
-The tuple `{OddJob, :email}` will return a child spec for a supervisor that will start and supervise
-the `:email` pool. The second element of the tuple can be any atom that you want to use as a unique
+The tuple `{OddJob, MyApp.Email}` will return a child spec for a supervisor that will start and supervise
+the `MyApp.Email` pool. The second element of the tuple can be any atom that you want to use as a unique
 name for the pool. You can supervise as many pools as you want, as long as they have unique names.
 
 Any default configuration options listed in your `config.exs` will also apply to your own supervised
@@ -138,8 +135,8 @@ in the child spec tuple:
 def start(_type, _args) do
 
   children = [
-    {OddJob, :email}, # The :email pool will use the default config
-    {OddJob, name: :external_app, pool_size: 20, max_restarts: 10} # The :external_app pool will not
+    {OddJob, MyApp.Email}, # The MyApp.Email pool will use the default config
+    {OddJob, name: MyApp.ExternalService, pool_size: 20, max_restarts: 10} # The MyApp.ExternalService pool will not
   ]
 
   Supervisor.start_link(children, opts)
@@ -155,7 +152,7 @@ used to start your pool under a supervisor.
 Imagine you want to start a job pool with a dynamically configurable pool size:
 
 ```elixir
-defmodule MyApp.Job do
+defmodule MyApp.Email do
   use OddJob
 
   def start_link(init_arg) do
@@ -174,26 +171,26 @@ Now you can supervise your pool and set the pool size in a child spec tuple:
 
 ```elixir
 children = [
-  {MyApp.Job, 20}
+  {MyApp.Email, 20}
 ]
 
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-You can also skip the initial argument by passing `MyApp.Job` on its own:
+You can also skip the initial argument by passing `MyApp.Email` on its own:
 
 ```elixir
 # in my_app/application.ex
 
 children = [
-  MyApp.Job # Same as {MyApp.Job, []}
+  MyApp.Email # Same as {MyApp.Email, []}
 ]
 
 Supervisor.start_link(children, strategy: :one_for_one)
 
 # in my_app/job.ex
 
-defmodule MyApp.Job do
+defmodule MyApp.Email do
   use OddJob
 
   def start_link(_init_arg) do
@@ -214,7 +211,7 @@ See the `Supervisor` module for more info
 on supervision start options.
 
 All of the previously mentioned config options can be combined. You can have a 
-default pool with an optional custom name, extra pools in the OddJob supervision tree, and pools to 
+default pool, extra pools in the OddJob supervision tree, and pools to 
 be supervised by your own application, all of which can either use the default config or their own 
 overrides.
 
@@ -224,10 +221,10 @@ A job pool can be sent jobs by passing its unique name and an anonymous function
 module's `perform` functions:
 
 ```elixir
-job = OddJob.async_perform(:external_app, fn -> get_data(user) end)
+job = OddJob.async_perform(MyApp.ExternalService, fn -> get_data(user) end)
 # do something else
 data = OddJob.await(job)
-OddJob.perform(:email, fn -> send_email(user, data) end)
+OddJob.perform(MyApp.Email, fn -> send_email(user, data) end)
 ```
 
 If a worker in the pool is available then the job will be performed right away. If all of the workers

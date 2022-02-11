@@ -133,17 +133,12 @@ pools. You can override the config for any pool by passing specifying the config
 child spec options:
 
 ```elixir
-def start(_type, _args) do
-
-  children = [
-    # The MyApp.Email pool will use the default config:
-    {OddJob, name: MyApp.Email},
-    # The MyApp.ExternalService pool will not:
-    {OddJob, name: MyApp.ExternalService, pool_size: 20, max_restarts: 10}
-  ]
-
-  Supervisor.start_link(children, opts)
-end
+children = [
+  # The MyApp.Email pool will use the default config:
+  {OddJob, name: MyApp.Email},
+  # The MyApp.ExternalService pool will not:
+  {OddJob, name: MyApp.ExternalService, pool_size: 20, max_restarts: 10}
+]
 ```
 
 <!-- USINGDOC -->
@@ -154,7 +149,8 @@ You may want to configure your pool at runtime, or wrap your logic in a custom A
 pools are great for this. Invoking `use OddJob.Pool` defines a `child_spec/1` function that can be
 used to start your pool under a supervisor.
 
-Imagine you want to start a job pool with a dynamically configurable pool size:
+Imagine you want to start a job pool with a dynamically configurable pool size and wrap it in
+a client API:
 
 ```elixir
 defmodule MyApp.Email do

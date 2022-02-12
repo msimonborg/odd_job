@@ -4,9 +4,9 @@ defmodule OddJob.Registry do
   """
   @moduledoc since: "0.4.0"
 
-  @type name :: {:via, Registry, {OddJob.Registry, {term, term}}}
-  @type pool :: term
-  @type role :: atom | {atom, non_neg_integer}
+  @type pool :: atom
+  @type role :: atom
+  @type name :: {:via, Registry, {OddJob.Registry, {pool, role}}}
 
   @doc false
   def child_spec(_arg) do
@@ -17,14 +17,12 @@ defmodule OddJob.Registry do
   @doc """
   Returns the name in `:via` that can be used to lookup an OddJob process.
 
-  The first argument is the term that was used to name the `pool`. The second
+  The first argument is the atom that was used to name the `pool`. The second
   argument is the `role` as an atom, or the tuple `{:worker, id}`.
 
   ## Roles
 
-    * `:sup` - the supervisor at the top of the `pool` tree
-
-    * `:pool` - the `pool` process, a `GenServer` that receives jobs and assigns them to
+    * `:queue` - the `pool` process, a `GenServer` that receives jobs and assigns them to
     the workers
 
     * `:pool_sup` - the supervisor responsible for starting and stopping the workers in
@@ -35,13 +33,12 @@ defmodule OddJob.Registry do
 
     * `:scheduler_sup` - the supervisor responsible for starting job scheduling processes
 
-    * `{:worker, id}` - one of the workers in the `pool`. `id` is a positive integer
-    identifier. The minimum value is `1`, the maximum value is equal to the pool size.
-
   ## Example
 
       iex> OddJob.Registry.via(ViaTest, :sup)
       {:via, Registry, {OddJob.Registry, {ViaTest, :sup}}}
+
+  See `OddJob.Utils` for helper functions that encapsulate each role.
   """
   @spec via(pool, role) :: name
   def via(pool, role), do: {:via, Registry, {__MODULE__, {pool, role}}}

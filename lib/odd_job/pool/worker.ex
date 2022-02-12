@@ -59,7 +59,7 @@ defmodule OddJob.Pool.Worker do
     results = job.function.()
 
     Utils.queue_name(pool)
-    |> GenServer.call(:complete)
+    |> GenServer.cast({:complete, self()})
 
     %{job | results: results}
   end

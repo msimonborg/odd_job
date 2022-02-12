@@ -84,6 +84,16 @@ defmodule OddJob.Queue do
     {:noreply, %{state | workers: workers, assigned: assigned, jobs: rest}}
   end
 
+  def handle_cast({:complete, worker}, %{assigned: assigned, jobs: []} = state) do
+    {:noreply, %{state | assigned: assigned -- [worker]}}
+  end
+
+  def handle_cast({:complete, worker}, %{jobs: jobs} = state) do
+    [new_job | rest] = jobs
+    GenServer.cast(worker, {:do_perform, new_job})
+    {:noreply, %{state | jobs: rest}}
+  end
+
   def handle_cast({:perform, job}, state) do
     state = do_perform(job, state)
     {:noreply, state}
@@ -126,16 +136,6 @@ defmodule OddJob.Queue do
   defp available_workers(workers, assigned), do: workers -- assigned
 
   @impl GenServer
-  def handle_call(:complete, {pid, _}, %{assigned: assigned, jobs: []} = state) do
-    {:reply, :ok, %{state | assigned: assigned -- [pid]}}
-  end
-
-  def handle_call(:complete, {worker, _}, %{jobs: jobs} = state) do
-    [new_job | rest] = jobs
-    GenServer.cast(worker, {:do_perform, new_job})
-    {:reply, :ok, %{state | jobs: rest}}
-  end
-
   def handle_call(:state, _from, state) do
     {:reply, state, state}
   end

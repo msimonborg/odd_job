@@ -35,3 +35,5 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Run Credo
       run: mix credo --strict
+    - name: Check format
+      run: mix format --check-formatted

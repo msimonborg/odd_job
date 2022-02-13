@@ -1,7 +1,7 @@
 defmodule OddJob.MixProject do
   use Mix.Project
 
-  @version "0.4.0-dev"
+  @version "0.4.0"
   @source_url "https://github.com/msimonborg/odd_job"
 
   def project do
@@ -49,7 +49,7 @@ defmodule OddJob.MixProject do
   end
 
   defp description do
-    "Job pools for Elixir OTP applications, written in Elixir."
+    "Simple job pools for Elixir OTP applications."
   end
 
   defp package do
@@ -76,7 +76,7 @@ defmodule OddJob.MixProject do
         "Internal Helpers": [
           OddJob.Utils
         ],
-        Types: [
+        "Data Types": [
           OddJob.Job
         ],
         Processes: [
@@ -88,8 +88,7 @@ defmodule OddJob.MixProject do
           OddJob.Queue,
           OddJob.Registry,
           OddJob.Scheduler,
-          OddJob.Scheduler.Supervisor,
-          OddJob.Supervisor
+          OddJob.Scheduler.Supervisor
         ]
       ]
     ]

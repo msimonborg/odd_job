@@ -2,19 +2,15 @@ defmodule OddJob.Async do
   @moduledoc false
   @moduledoc since: "0.1.0"
 
-  alias OddJob.{Job, Utils}
+  alias OddJob.{Async.ProxySupervisor, Job, Utils}
 
   @type job :: OddJob.Job.t()
-
-  @server OddJob.Async.Proxy
 
   @doc since: "0.1.0"
   @spec perform(atom, fun) :: job
   def perform(pool, fun) when is_atom(pool) and is_function(fun) do
     pool
-    |> Utils.proxy_sup_name()
-    |> DynamicSupervisor.start_child(@server)
-    |> Utils.extract_pid()
+    |> ProxySupervisor.start_child()
     |> Utils.link_and_monitor()
     |> build_job(fun)
     |> run_proxy_with_job(pool)
@@ -30,9 +26,7 @@ defmodule OddJob.Async do
     jobs =
       for item <- collection do
         pool
-        |> Utils.proxy_sup_name()
-        |> DynamicSupervisor.start_child(@server)
-        |> Utils.extract_pid()
+        |> ProxySupervisor.start_child()
         |> Utils.link_and_monitor()
         |> build_job(fn -> fun.(item) end)
         |> send_job_to_proxy()

@@ -23,7 +23,7 @@ defmodule OddJob.Pool do
 
   #{@usingdoc}
   """
-  @moduledoc since: "0.1.0"
+  @moduledoc since: "0.4.0"
 
   use Supervisor
 

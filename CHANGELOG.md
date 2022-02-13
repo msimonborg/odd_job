@@ -30,8 +30,7 @@ supervisor
 tuple: `{OddJob, name: :work, pool_size: 10}`, or to `OddJob.start_link/1` for module-based pools.
 
 ### Improvements
-- Use `:via` process naming to allow any term to be used for naming pools, and to avoid dynamic 
-generation of atoms.
+- Use `:via` process naming for dynamically named processes.
 - Every pool supervises its own proxy supervisor and scheduler supervisor to increase isolation 
 between pools.
 - Better documentation about version history.

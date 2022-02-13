@@ -8,6 +8,18 @@ defmodule OddJob.Async.ProxySupervisor do
   @doc false
   use DynamicSupervisor
 
+  alias OddJob.Utils
+
+  @child OddJob.Async.Proxy
+
+  @spec start_child(atom) :: pid
+  def start_child(pool) do
+    pool
+    |> Utils.scheduler_sup_name()
+    |> DynamicSupervisor.start_child(@child)
+    |> Utils.extract_pid()
+  end
+
   @doc false
   def start_link(name) do
     opts = [

@@ -1,6 +1,13 @@
 # Changelog
 
-## v0.4.0-dev
+## v.0.4.1
+
+### Improvements
+- Hibernate `OddJob.Queue` after a 10 second timeout to trigger garbage collection and reduce
+memory consumption
+- Fix typo in CHANGELOG.md
+
+## v0.4.0
 
 ### Changes
 - `OddJob.child_spec/1` accepts a keyword list of options that must contain a `:name` key with

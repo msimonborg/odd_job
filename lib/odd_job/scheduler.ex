@@ -14,6 +14,8 @@ defmodule OddJob.Scheduler do
   @doc false
   use GenServer, restart: :temporary
 
+  import OddJob, only: [is_timer: 1]
+
   alias OddJob.Scheduler.Supervisor
 
   @name __MODULE__
@@ -22,8 +24,6 @@ defmodule OddJob.Scheduler do
   @typedoc false
   @type timer :: non_neg_integer
   @type pool :: atom
-
-  defguard is_timer(timer) when is_integer(timer) and timer >= 0
 
   @doc false
   @spec perform(timer, pool, function) :: reference
@@ -91,7 +91,7 @@ defmodule OddJob.Scheduler do
 
   defp set_timeout(timer_ref) do
     time_remaining = Process.read_timer(timer_ref)
-    Process.send_after(self(), :timeout, time_remaining + 1000)
+    Process.send_after(self(), :timeout, time_remaining + 1)
     timer_ref
   end
 
@@ -112,6 +112,6 @@ defmodule OddJob.Scheduler do
   end
 
   def handle_info(:timeout, state) do
-    {:stop, :timeout, state}
+    {:stop, :normal, state}
   end
 end

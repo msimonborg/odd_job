@@ -16,7 +16,8 @@ defmodule OddJob.Utils do
 
   ## Example
 
-      iex> {pid, ref} = OddJob.Utils.link_and_monitor(spawn(fn -> :hello end))
+      iex> pid = spawn(fn -> [] end)
+      iex> {^pid, ref} = OddJob.Utils.link_and_monitor(pid)
       iex> receive do
       ...>   {:DOWN, ^ref, :process, ^pid, :normal} -> :received
       ...> end

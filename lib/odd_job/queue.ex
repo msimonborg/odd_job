@@ -54,11 +54,6 @@ defmodule OddJob.Queue do
   @spec monitor(atom | pid, pid) :: :ok
   def monitor(queue, worker) when is_pid(queue), do: GenServer.cast(queue, {:monitor, worker})
 
-  def monitor(pool_name, worker) do
-    Utils.queue_name(pool_name)
-    |> GenServer.cast({:monitor, worker})
-  end
-
   @impl GenServer
   @spec init(atom) :: {:ok, t}
   def init(pool_name) do

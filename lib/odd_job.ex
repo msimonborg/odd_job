@@ -157,16 +157,9 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec child_spec(options) :: child_spec
   def child_spec(opts) when is_list(opts) do
-    name = Keyword.fetch!(opts, :name)
-
-    unless is_atom(name) do
-      raise ArgumentError,
-        message: """
-        Expected `name` to be an atom. Got #{inspect(name)}
-        """
-    end
-
-    OddJob.Pool.child_spec(opts)
+    opts
+    |> validate_name!()
+    |> OddJob.Pool.child_spec()
   end
 
   @doc """
@@ -190,6 +183,12 @@ defmodule OddJob do
   @doc since: "0.4.0"
   @spec start_link(options) :: Supervisor.on_start()
   def start_link(opts) when is_list(opts) do
+    opts
+    |> validate_name!()
+    |> OddJob.Pool.start_link()
+  end
+
+  defp validate_name!(opts) do
     name = Keyword.fetch!(opts, :name)
 
     unless is_atom(name) do
@@ -199,7 +198,7 @@ defmodule OddJob do
         """
     end
 
-    OddJob.Pool.start_link(opts)
+    opts
   end
 
   @doc """
@@ -606,12 +605,12 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> ref = OddJob.perform_after(500, :work, fn -> :never end)
+      iex> ref = OddJob.perform_after(500, OddJob.Pool, fn -> :never end)
       iex> time = OddJob.cancel_timer(ref)
       iex> is_integer(time)
       true
 
-      iex> ref = OddJob.perform_after(10, :work, fn -> :never end)
+      iex> ref = OddJob.perform_after(10, OddJob.Pool, fn -> :never end)
       iex> Process.sleep(11)
       iex> OddJob.cancel_timer(ref)
       false

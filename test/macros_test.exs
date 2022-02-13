@@ -2,12 +2,14 @@ defmodule MacrosTest do
   use ExUnit.Case, async: false
   import OddJob
 
+  @pool :macros_test
+
   describe "perform_this/2" do
     test "performs a fire and forget job" do
       caller = self()
       t1 = Time.utc_now()
 
-      perform_this :work do
+      perform_this @pool do
         Process.sleep(10)
         send(caller, :hello)
       end
@@ -29,7 +31,7 @@ defmodule MacrosTest do
       value = 100.0
 
       job =
-        perform_this :work, :async do
+        perform_this @pool, :async do
           :math.exp(value)
           |> :math.log()
         end
@@ -38,7 +40,7 @@ defmodule MacrosTest do
     end
 
     test "can receive a keyword list instead of a do block" do
-      job = perform_this(:work, :async, do: :finally)
+      job = perform_this(@pool, :async, do: :finally)
       :do_something_else
       result = await(job)
       assert result == :finally
@@ -50,7 +52,7 @@ defmodule MacrosTest do
       caller = self()
       time = DateTime.add(DateTime.utc_now(), 10, :millisecond)
 
-      perform_this :work, at: time do
+      perform_this @pool, at: time do
         send(caller, DateTime.utc_now())
       end
 
@@ -66,7 +68,7 @@ defmodule MacrosTest do
       caller = self()
       time = DateTime.add(DateTime.utc_now(), 10, :millisecond)
 
-      perform_this(:work, at: time, do: send(caller, DateTime.utc_now()))
+      perform_this(@pool, at: time, do: send(caller, DateTime.utc_now()))
 
       result =
         receive do
@@ -82,7 +84,7 @@ defmodule MacrosTest do
       caller = self()
       time = Time.add(Time.utc_now(), 10, :millisecond)
 
-      perform_this :work, after: 10 do
+      perform_this @pool, after: 10 do
         send(caller, Time.utc_now())
       end
 
@@ -98,7 +100,7 @@ defmodule MacrosTest do
       caller = self()
       time = Time.add(Time.utc_now(), 10, :millisecond)
 
-      perform_this(:work, after: 10, do: send(caller, Time.utc_now()))
+      perform_this(@pool, after: 10, do: send(caller, Time.utc_now()))
 
       result =
         receive do

@@ -1,10 +1,10 @@
-defmodule OddJob.CallbacksTest do
+defmodule OddJob.PoolTest do
   use ExUnit.Case, async: false
 
   import OddJob, except: [child_spec: 1, start_link: 1]
 
   setup_all do
-    {:ok, sup} = Supervisor.start_link([OddJob.CallbacksTest.Job], strategy: :one_for_one)
+    {:ok, sup} = Supervisor.start_link([OddJob.PoolTest.Job], strategy: :one_for_one)
     %{sup: sup}
   end
 

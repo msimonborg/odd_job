@@ -80,13 +80,13 @@ defmodule OddJob.Queue do
   end
 
   def handle_cast({:complete, worker}, %{assigned: assigned, jobs: []} = state) do
-    {:noreply, %{state | assigned: assigned -- [worker]}}
+    {:noreply, %{state | assigned: assigned -- [worker]}, _timeout = 10_000}
   end
 
   def handle_cast({:complete, worker}, %{jobs: jobs} = state) do
     [new_job | rest] = jobs
     GenServer.cast(worker, {:do_perform, new_job})
-    {:noreply, %{state | jobs: rest}}
+    {:noreply, %{state | jobs: rest}, _timeout = 10_000}
   end
 
   def handle_cast({:perform, job}, state) do
@@ -144,5 +144,9 @@ defmodule OddJob.Queue do
     workers = workers -- [pid]
     assigned = assigned -- [pid]
     {:noreply, %{state | workers: workers, assigned: assigned}}
+  end
+
+  def handle_info(:timeout, state) do
+    {:noreply, state, :hibernate}
   end
 end

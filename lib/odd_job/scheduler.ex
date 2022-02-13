@@ -75,9 +75,9 @@ defmodule OddJob.Scheduler do
       timer
       |> set_timer(dispatch)
       |> register()
-      |> set_timeout()
 
-    {:reply, timer_ref, state}
+    timeout = Process.read_timer(timer_ref) + 1
+    {:reply, timer_ref, state, timeout}
   end
 
   defp set_timer(timer, dispatch) do
@@ -86,12 +86,6 @@ defmodule OddJob.Scheduler do
 
   defp register(timer_ref) do
     Registry.register(@registry, timer_ref, :timer)
-    timer_ref
-  end
-
-  defp set_timeout(timer_ref) do
-    time_remaining = Process.read_timer(timer_ref)
-    Process.send_after(self(), :timeout, time_remaining + 1)
     timer_ref
   end
 

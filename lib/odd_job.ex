@@ -14,6 +14,8 @@ defmodule OddJob do
 
   @type pool :: atom
   @type not_found :: {:error, :not_found}
+  @type timer :: non_neg_integer
+  @type date_time :: DateTime.t()
   @type job :: Job.t()
   @type queue :: Queue.t()
   @type name :: Registry.name()
@@ -27,7 +29,7 @@ defmodule OddJob do
 
   @doc false
   @doc since: "0.4.0"
-  defguard is_time(time) when is_struct(time, DateTime)
+  defguard is_timer(timer) when is_integer(timer) and timer >= 0
 
   @doc """
   A macro for creating jobs with an expressive DSL.
@@ -330,7 +332,7 @@ defmodule OddJob do
   calling, or {:error, :not_found} if it doesn't.
 
   Enumerates over the collection, using each member as the argument to an anonymous function
-  witn an arity of `1`. See `async_perform/2` and `perform/2` for more information.
+  with an arity of `1`. See `async_perform/2` and `perform/2` for more information.
 
   There's a limit to the number of jobs that can be started with this function that
   roughly equals the BEAM's process limit.
@@ -440,12 +442,55 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_after(integer, pool, function) :: reference | not_found
+  @spec perform_after(timer, pool, function) :: reference | not_found
   def perform_after(timer, pool, fun)
-      when is_atom(pool) and is_integer(timer) and is_function(fun, 0) do
+      when is_atom(pool) and is_timer(timer) and is_function(fun, 0) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
-      _ -> Scheduler.perform_after(timer, pool, fun)
+      _ -> Scheduler.perform(timer, pool, fun)
+    end
+  end
+
+  @doc """
+  Sends a collection of jobs to the `pool` after the given `timer` has elapsed.
+
+  Enumerates over the collection, using each member as the argument to an anonymous function
+  with an arity of `1`. Returns a single timer `reference`. The `timer` is watched by a single
+  process that will send the entire batch of jobs to the pool when the timer expires. See
+  `perform_after/3` for more information about arguments and timers.
+
+  Consider using this function instead of `perform_after/3` when scheduling a large batch of jobs.
+  `perform_after/3` starts a separate scheduler process per job, whereas this function starts a
+  single scheduler process for the whole batch.
+
+  Returns `{:error, :not_found}` if the `pool` does not exist at the time the function
+  is called.
+
+  ## Examples
+
+      timer_ref = OddJob.perform_many_after(5000, OddJob.Pool, 1..5, fn x -> x ** 2 end)
+      #=> #Reference<0.1431903625.286261254.39156>
+      # fewer than 5 seconds pass
+      OddJob.cancel_timer(timer_ref)
+      #=> 2554 # returns the time remaining. All jobs in the collection have been canceled
+
+      timer_ref = OddJob.perform_many_after(5000, OddJob.Pool, 1..5, fn x -> x **2 end)
+      #=> #Reference<0.1431903625.286261254.39178>
+      # more than 5 seconds pass
+      OddJob.cancel_timer(timer_ref)
+      #=> false # too much time has passed, all jobs have been queued
+
+      iex> OddJob.perform_many_after(5000, :does_not_exist, ["never", "called"], fn x -> x end)
+      {:error, :not_found}
+  """
+  @doc since: "0.4.0"
+  @spec perform_many_after(timer, pool, list | map, function) :: [job] | not_found
+  def perform_many_after(timer, pool, collection, function)
+      when is_atom(pool) and is_timer(timer) and is_enumerable(collection) and
+             is_function(function, 1) do
+    case pool |> queue_name() do
+      {:error, :not_found} -> {:error, :not_found}
+      _ -> Scheduler.perform_many(timer, pool, collection, function)
     end
   end
 
@@ -468,12 +513,81 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_at(DateTime.t(), pool, function) :: reference | not_found
-  def perform_at(time, pool, fun)
-      when is_atom(pool) and is_time(time) and is_function(fun) do
+  @spec perform_at(date_time, pool, function) :: reference | not_found
+  def perform_at(date_time, pool, fun)
+      when is_atom(pool) and is_struct(date_time, DateTime) and is_function(fun, 0) do
     case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      _ -> Scheduler.perform_at(time, pool, fun)
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      _ ->
+        date_time
+        |> validate_date_time!()
+        |> Scheduler.perform(pool, fun)
+    end
+  end
+
+  @doc """
+  Sends a collection of jobs to the `pool` at the given `time`.
+
+  Enumerates over the collection, using each member as the argument to an anonymous function
+  with an arity of `1`. Returns a single timer `reference`. The timer is watched by a single
+  process that will send the entire batch of jobs to the pool when the timer expires. See
+  `perform_at/3` for more information about arguments and timers.
+
+  Consider using this function instead of `perform_at/3` when scheduling a large batch of jobs.
+  `perform_at/3` starts a separate scheduler process per job, whereas this function starts a
+  single scheduler process for the whole batch.
+
+  Returns `{:error, :not_found}` if the `pool` does not exist at the time the function
+  is called.
+
+  ## Examples
+
+      time = DateTime.utc_now() |> DateTime.add(5, :second)
+      timer_ref = OddJob.perform_many_at(time, OddJob.Pool, 1..5, fn x -> x ** 2 end)
+      #=> #Reference<0.1431903625.286261254.39156>
+      # fewer than 5 seconds pass
+      OddJob.cancel_timer(timer_ref)
+      #=> 2554 # returns the time remaining. All jobs in the collection have been canceled
+
+      time = DateTime.utc_now() |> DateTime.add(5, :second)
+      timer_ref = OddJob.perform_many_at(time, OddJob.Pool, 1..5, fn x -> x **2 end)
+      #=> #Reference<0.1431903625.286261254.39178>
+      # more than 5 seconds pass
+      OddJob.cancel_timer(timer_ref)
+      #=> false # too much time has passed, all jobs have been queued
+
+      iex> time = DateTime.utc_now() |> DateTime.add(5, :second)
+      iex> OddJob.perform_many_at(time, :does_not_exist, ["never", "called"], fn x -> x end)
+      {:error, :not_found}
+  """
+  @doc since: "0.4.0"
+  @spec perform_many_at(date_time, pool, list | map, function) :: reference | not_found
+  def perform_many_at(date_time, pool, collection, function)
+      when is_struct(date_time, DateTime) and is_atom(pool) and is_enumerable(collection) and
+             is_function(function, 1) do
+    case pool |> queue_name() do
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      _ ->
+        date_time
+        |> validate_date_time!()
+        |> Scheduler.perform_many(pool, collection, function)
+    end
+  end
+
+  defp validate_date_time!(date_time) do
+    now = DateTime.utc_now()
+
+    case DateTime.diff(date_time, now, :millisecond) do
+      diff when diff >= 0 ->
+        diff
+
+      _ ->
+        raise ArgumentError,
+          message: "invalid DateTime: must be after #{now}, got: #{date_time}"
     end
   end
 

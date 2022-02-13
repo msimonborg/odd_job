@@ -14,38 +14,30 @@ defmodule OddJob.Scheduler do
   @doc false
   use GenServer, restart: :temporary
 
-  alias OddJob.Utils
+  alias OddJob.Scheduler.Supervisor
 
   @name __MODULE__
   @registry OddJob.Registry
 
   @typedoc false
-  @type time :: Time.t() | DateTime.t()
+  @type timer :: non_neg_integer
+  @type pool :: atom
+
+  defguard is_timer(timer) when is_integer(timer) and timer >= 0
 
   @doc false
-  @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}
-  def start_link([]) do
-    GenServer.start_link(@name, [])
+  @spec perform(timer, pool, function) :: reference
+  def perform(timer, pool, function) when is_timer(timer) do
+    pool
+    |> Supervisor.start_child()
+    |> GenServer.call({:schedule_perform, timer, {pool, function}})
   end
 
-  @doc false
-  @spec perform_after(integer, atom, function) :: reference
-  def perform_after(timer, pool, fun) do
+  @spec perform_many(timer, pool, list | map, function) :: reference
+  def perform_many(timer, pool, collection, function) do
     pool
-    |> Utils.scheduler_sup_name()
-    |> DynamicSupervisor.start_child(@name)
-    |> Utils.extract_pid()
-    |> GenServer.call({:perform_after, timer, pool, fun})
-  end
-
-  @doc false
-  @spec perform_at(time, atom, function) :: reference
-  def perform_at(time, pool, fun) when is_struct(time, DateTime) do
-    pool
-    |> Utils.scheduler_sup_name()
-    |> DynamicSupervisor.start_child(@name)
-    |> Utils.extract_pid()
-    |> GenServer.call({:perform_at, time, pool, fun})
+    |> Supervisor.start_child()
+    |> GenServer.call({:schedule_perform, timer, {pool, collection, function}})
   end
 
   @doc false
@@ -63,6 +55,14 @@ defmodule OddJob.Scheduler do
 
   defp lookup(timer_ref), do: Registry.lookup(@registry, timer_ref)
 
+  @doc false
+  @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}
+  def start_link([]) do
+    GenServer.start_link(@name, [])
+  end
+
+  ## Callbacks
+
   @impl GenServer
   @spec init([]) :: {:ok, []}
   def init([]) do
@@ -70,30 +70,18 @@ defmodule OddJob.Scheduler do
   end
 
   @impl GenServer
-  def handle_call({:perform_after, timer, pool, fun}, _, state) do
+  def handle_call({:schedule_perform, timer, dispatch}, _, state) do
     timer_ref =
       timer
-      |> set_timer(:perform, pool, fun)
+      |> set_timer(dispatch)
       |> register()
       |> set_timeout()
 
     {:reply, timer_ref, state}
   end
 
-  def handle_call({:perform_at, time, pool, fun}, _, state) do
-    timer_ref =
-      DateTime.utc_now()
-      |> DateTime.diff(time, :millisecond)
-      |> abs()
-      |> set_timer(:perform, pool, fun)
-      |> register()
-      |> set_timeout()
-
-    {:reply, timer_ref, state}
-  end
-
-  defp set_timer(timer, dispatch, pool, fun) do
-    Process.send_after(self(), {dispatch, pool, fun}, timer)
+  defp set_timer(timer, dispatch) do
+    Process.send_after(self(), {:perform, dispatch}, timer)
   end
 
   defp register(timer_ref) do
@@ -113,8 +101,13 @@ defmodule OddJob.Scheduler do
   end
 
   @impl GenServer
-  def handle_info({:perform, pool, fun}, state) do
+  def handle_info({:perform, {pool, fun}}, state) do
     OddJob.perform(pool, fun)
+    {:stop, :normal, state}
+  end
+
+  def handle_info({:perform, {pool, collection, function}}, state) do
+    OddJob.perform_many(pool, collection, function)
     {:stop, :normal, state}
   end
 

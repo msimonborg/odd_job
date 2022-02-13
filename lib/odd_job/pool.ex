@@ -18,7 +18,7 @@ defmodule OddJob.Pool do
   ## Public functions
 
   This module defines the public functions `start_link/1` and `child_spec/1`. It is recommended
-  that you call these functions from from `OddJob` module namespace instead. See `OddJob` for
+  that you call these functions from the `OddJob` module namespace instead. See `OddJob` for
   documentation and usage.
 
   #{@usingdoc}

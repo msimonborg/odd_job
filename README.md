@@ -28,11 +28,11 @@ end
 ## Getting started
 
 After installation you can start processing jobs right away. OddJob automatically starts up a supervised job
-pool of 5 workers out of the box with no configuration required. The default name of this job pool is `OddJob.Job`,
+pool of 5 workers out of the box with no configuration required. The default name of this job pool is `OddJob.Pool`,
 and it can be sent work in the following way:
 
 ```elixir
-OddJob.perform(OddJob.Job, fn -> do_some_work() end)
+OddJob.perform(OddJob.Pool, fn -> do_some_work() end)
 ```
 You can skip ahead for more [usage](#usage), or read on for a guide to configuring your job pools.
 
@@ -82,7 +82,7 @@ config :odd_job,
 ```
 
 Next we'll see how you can [add job pools to your own application's supervision tree](#supervising-job-pools).
-If you don't want OddJob to supervise any pools for you (including the default `OddJob.Job`
+If you don't want OddJob to supervise any pools for you (including the default `OddJob.Pool`
 pool) do not set a value for `:extra_pools` and pass `false` to the `:default_pool` config key:
 
 ```elixir
@@ -245,10 +245,10 @@ reason.
 Jobs can be scheduled for later execution with `perform_after/3` and `perform_at/3`:
 
 ```elixir
-OddJob.perform_after(1_000_000, OddJob.Job, fn -> clean_database() end) # accepts a timer in milliseconds
+OddJob.perform_after(1_000_000, OddJob.Pool, fn -> clean_database() end) # accepts a timer in milliseconds
 
 time = DateTime.utc_now |> DateTime.add(60 * 60 * 24, :second) # 24 hours from now
-OddJob.perform_at(time, OddJob.Job, fn -> verify_work_is_done() end) # accepts a future DateTime struct
+OddJob.perform_at(time, OddJob.Pool, fn -> verify_work_is_done() end) # accepts a future DateTime struct
 ```
 
 The scheduling functions return a unique timer reference which can be read with `Process.read_timer/
@@ -257,7 +257,7 @@ clean up after itself by causing the scheduler process to exit. When the timer i
 be sent to the pool and can no longer be aborted.
 
 ```elixir
-ref = OddJob.perform_after(5000, OddJob.Job, fn -> :will_be_canceled end)
+ref = OddJob.perform_after(5000, OddJob.Pool, fn -> :will_be_canceled end)
 
 # somewhere else in your code
 if some_condition() do

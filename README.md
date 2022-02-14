@@ -189,7 +189,7 @@ children = [
 
 Supervisor.start_link(children, strategy: :one_for_one)
 
-# in my_app/job.ex
+# in my_app/email.ex
 
 defmodule MyApp.Email do
   use OddJob.Pool
@@ -202,13 +202,22 @@ end
 
 For convenience, `use OddJob.Pool` automatically defines an overridable `start_link/1` function 
 just like the one above, that ignores the initial argument and names the pool after the module, 
-using the default configuration options.
+using the default configuration options. This means the above example is equivalent to:
 
-You can pass any supervision `start options` to `use OddJob.Pool`:
+```elixir
+defmodule MyApp.Email do
+  use OddJob.Pool
+end
+```
+
+You can pass any supervision start options to `use OddJob.Pool`:
+
 ```elixir
 use OddJob.Pool, restart: :transient, shutdown: :brutal_kill
-``` 
-See the `Supervisor` module for more info on supervision start options.
+```
+
+The default options are the same as any `Supervisor`. See the `Supervisor` module for more info on
+supervision start options.
 
 <!-- USINGDOC -->
 

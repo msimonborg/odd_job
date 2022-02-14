@@ -6,6 +6,7 @@
 - Hibernate `OddJob.Queue` after a 10 second timeout to trigger garbage collection and reduce
 memory consumption
 - Fix typo in CHANGELOG.md
+- Fixes and additions to documentation.
 
 ## v0.4.0
 

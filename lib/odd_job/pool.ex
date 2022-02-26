@@ -88,7 +88,7 @@ defmodule OddJob.Pool do
       unless Module.has_attribute?(__MODULE__, :doc) do
         @doc """
         Starts an OddJob supervision tree linked to the current process.
-        See `OddJob.start_link/2`.
+        See `OddJob.start_link/1`.
         """
       end
 

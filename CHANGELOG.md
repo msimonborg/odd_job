@@ -3,6 +3,19 @@
 ## v.0.4.1
 
 ### Improvements
+- Fix typos and make improvements in documentation.
+- Fix an incorrect reference to `start_link/2` in the documentation generated with
+`Use OddJob.Pool`.
+
+### Improvements
+- Hibernate `OddJob.Queue` after a 10 second timeout to trigger garbage collection and reduce
+memory consumption
+- Fix typo in CHANGELOG.md
+- Fixes and additions to documentation.
+
+## v.0.4.1
+
+### Improvements
 - Hibernate `OddJob.Queue` after a 10 second timeout to trigger garbage collection and reduce
 memory consumption
 - Fix typo in CHANGELOG.md

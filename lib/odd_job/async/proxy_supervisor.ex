@@ -21,16 +21,10 @@ defmodule OddJob.Async.ProxySupervisor do
   end
 
   @doc false
-  def start_link(name) do
-    opts = [
-      name: OddJob.Utils.proxy_sup_name(name)
-    ]
-
-    DynamicSupervisor.start_link(__MODULE__, [], opts)
-  end
+  def start_link(name),
+    do: DynamicSupervisor.start_link(__MODULE__, [], name: Utils.proxy_sup_name(name))
 
   @impl DynamicSupervisor
-  def init([]) do
-    DynamicSupervisor.init(strategy: :one_for_one)
-  end
+  def init([]),
+    do: DynamicSupervisor.init(strategy: :one_for_one)
 end

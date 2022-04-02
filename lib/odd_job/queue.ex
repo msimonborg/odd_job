@@ -11,6 +11,8 @@ defmodule OddJob.Queue do
   @doc false
   use GenServer
 
+  import OddJob, only: [is_enumerable: 1]
+
   alias OddJob.{Job, Utils}
 
   @spec __struct__ :: OddJob.Queue.t()
@@ -37,6 +39,9 @@ defmodule OddJob.Queue do
         }
 
   @type job :: Job.t()
+  @type queue_name :: {:via, Registry, {OddJob.Registry, {atom, :queue}}}
+
+  # <---- API ---->
 
   @doc false
   def start_link(pool_name) do
@@ -44,15 +49,33 @@ defmodule OddJob.Queue do
   end
 
   @doc false
-  @spec state(atom | pid) :: t
-  def state(pool_name) do
-    Utils.queue_name(pool_name)
-    |> GenServer.call(:state)
+  @spec perform(queue_name, function) :: :ok
+  def perform(queue, function) when is_function(function, 0) do
+    job = %Job{function: function, owner: self()}
+    GenServer.cast(queue, {:perform, job})
   end
 
   @doc false
-  @spec monitor(atom | pid, pid) :: :ok
-  def monitor(queue, worker) when is_pid(queue), do: GenServer.cast(queue, {:monitor, worker})
+  @spec perform_many(queue_name, list | map, function) :: :ok
+  def perform_many(queue, collection, function)
+      when is_enumerable(collection) and is_function(function, 1) do
+    jobs =
+      for member <- collection do
+        %Job{function: fn -> function.(member) end, owner: self()}
+      end
+
+    GenServer.cast(queue, {:perform_many, jobs})
+  end
+
+  @doc false
+  @spec state(queue_name) :: t
+  def state(queue),
+    do: GenServer.call(queue, :state)
+
+  @doc false
+  @spec monitor_worker(queue_name, pid) :: :ok
+  def monitor_worker(queue, worker) when is_pid(worker),
+    do: GenServer.cast(queue, {:monitor, worker})
 
   @impl GenServer
   @spec init(atom) :: {:ok, t}

@@ -232,12 +232,8 @@ defmodule OddJob do
   @spec perform(pool, function) :: :ok | not_found
   def perform(pool, function) when is_atom(pool) and is_function(function, 0) do
     case pool |> queue_name() do
-      {:error, :not_found} ->
-        {:error, :not_found}
-
-      server ->
-        job = %Job{function: function, owner: self()}
-        GenServer.cast(server, {:perform, job})
+      {:error, :not_found} -> {:error, :not_found}
+      queue -> Queue.perform(queue, function)
     end
   end
 
@@ -273,16 +269,8 @@ defmodule OddJob do
   def perform_many(pool, collection, function)
       when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
     case pool |> queue_name() do
-      {:error, :not_found} ->
-        {:error, :not_found}
-
-      server ->
-        jobs =
-          for member <- collection do
-            %Job{function: fn -> function.(member) end, owner: self()}
-          end
-
-        GenServer.cast(server, {:perform_many, jobs})
+      {:error, :not_found} -> {:error, :not_found}
+      queue -> Queue.perform_many(queue, collection, function)
     end
   end
 
@@ -659,7 +647,7 @@ defmodule OddJob do
         {:error, :not_found}
 
       pid ->
-        state = Queue.state(pool)
+        state = Queue.state(name)
         {pid, state}
     end
   end

@@ -16,7 +16,7 @@ defmodule OddJob.Scheduler do
 
   import OddJob, only: [is_timer: 1]
 
-  alias OddJob.Scheduler.Supervisor
+  alias OddJob.Scheduler.Supervisor, as: SchedulerSup
 
   @name __MODULE__
   @registry OddJob.Registry
@@ -25,18 +25,20 @@ defmodule OddJob.Scheduler do
   @type timer :: non_neg_integer
   @type pool :: atom
 
+  # <---- API ---->
+
   @doc false
   @spec perform(timer, pool, function) :: reference
   def perform(timer, pool, function) when is_timer(timer) do
     pool
-    |> Supervisor.start_child()
+    |> SchedulerSup.start_child()
     |> GenServer.call({:schedule_perform, timer, {pool, function}})
   end
 
   @spec perform_many(timer, pool, list | map, function) :: reference
   def perform_many(timer, pool, collection, function) do
     pool
-    |> Supervisor.start_child()
+    |> SchedulerSup.start_child()
     |> GenServer.call({:schedule_perform, timer, {pool, collection, function}})
   end
 
@@ -61,7 +63,7 @@ defmodule OddJob.Scheduler do
     GenServer.start_link(@name, [])
   end
 
-  ## Callbacks
+  # <---- Callbacks ---->
 
   @impl GenServer
   @spec init([]) :: {:ok, []}

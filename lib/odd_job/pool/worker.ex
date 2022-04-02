@@ -13,12 +13,13 @@ defmodule OddJob.Pool.Worker do
 
   alias OddJob.Utils
 
-  defstruct [:id, :pool, :queue]
+  defstruct [:id, :pool, :queue_pid, :queue_name]
 
   @type t :: %__MODULE__{
           id: non_neg_integer,
           pool: atom,
-          queue: pid
+          queue_pid: pid,
+          queue_name: OddJob.Queue.queue_name()
         }
 
   @doc false
@@ -35,11 +36,17 @@ defmodule OddJob.Pool.Worker do
 
   @impl GenServer
   def init(opts) do
-    queue = Utils.queue_name(opts[:pool]) |> GenServer.whereis()
-    state = struct(__MODULE__, opts ++ [queue: queue])
-    Process.monitor(queue)
-    OddJob.Queue.monitor(queue, self())
-    {:ok, state}
+    pool = Keyword.fetch!(opts, :pool)
+
+    with queue_name = {:via, _, _} <- OddJob.queue_name(pool),
+         queue_pid when is_pid(queue_pid) <- GenServer.whereis(queue_name) do
+      state = struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])
+      Process.monitor(queue_pid)
+      OddJob.Queue.monitor_worker(queue_name, self())
+      {:ok, state}
+    else
+      _ -> raise RuntimeError, message: "#{inspect(pool)} queue process cannot be found"
+    end
   end
 
   @impl GenServer
@@ -58,25 +65,25 @@ defmodule OddJob.Pool.Worker do
   defp do_perform(pool, job) do
     results = job.function.()
 
-    Utils.queue_name(pool)
+    pool
+    |> Utils.queue_name()
     |> GenServer.cast({:complete, self()})
 
     %{job | results: results}
   end
 
   @impl GenServer
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, %{queue: queue} = state)
-      when pid == queue do
-    queue = check_for_new_queue(state.pool)
-    Process.monitor(queue)
-    OddJob.Queue.monitor(queue, self())
-
-    {:noreply, %{state | queue: queue}}
+  def handle_info({:DOWN, _, _, pid, _}, %{queue_pid: queue_pid, queue_name: queue_name} = state)
+      when pid == queue_pid do
+    new_queue_pid = check_for_new_queue_process(queue_name)
+    Process.monitor(new_queue_pid)
+    OddJob.Queue.monitor_worker(queue_name, self())
+    {:noreply, %{state | queue_pid: new_queue_pid}}
   end
 
-  defp check_for_new_queue(pool) do
-    case Utils.queue_name(pool) |> GenServer.whereis() do
-      nil -> check_for_new_queue(pool)
+  defp check_for_new_queue_process(queue_name) do
+    case GenServer.whereis(queue_name) do
+      nil -> check_for_new_queue_process(queue_name)
       pid -> pid
     end
   end

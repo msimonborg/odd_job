@@ -32,7 +32,8 @@ defmodule OddJob.Async do
         |> send_job_to_proxy()
       end
 
-    Utils.queue_name(pool)
+    pool
+    |> Utils.queue_name()
     |> GenServer.cast({:perform_many, jobs})
 
     jobs

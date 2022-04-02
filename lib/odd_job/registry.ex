@@ -9,10 +9,8 @@ defmodule OddJob.Registry do
   @type name :: {:via, Registry, {OddJob.Registry, {pool, role}}}
 
   @doc false
-  def child_spec(_arg) do
-    [keys: :unique, name: __MODULE__, partitions: 2]
-    |> Registry.child_spec()
-  end
+  def child_spec(_arg),
+    do: Registry.child_spec(keys: :unique, name: __MODULE__, partitions: 2)
 
   @doc """
   Returns the name in `:via` that can be used to lookup an OddJob process.
@@ -41,5 +39,6 @@ defmodule OddJob.Registry do
   See `OddJob.Utils` for helper functions that encapsulate each role.
   """
   @spec via(pool, role) :: name
-  def via(pool, role), do: {:via, Registry, {__MODULE__, {pool, role}}}
+  def via(pool, role),
+    do: {:via, Registry, {__MODULE__, {pool, role}}}
 end

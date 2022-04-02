@@ -38,9 +38,8 @@ defmodule OddJob.Pool do
   @doc false
   @spec child_spec(options) :: child_spec
   def child_spec(opts) when is_list(opts) do
-    opts = Keyword.merge([name: __MODULE__], opts)
-
-    opts
+    [name: __MODULE__]
+    |> Keyword.merge(opts)
     |> super()
     |> Supervisor.child_spec(id: opts[:name])
   end

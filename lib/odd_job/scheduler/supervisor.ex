@@ -22,11 +22,7 @@ defmodule OddJob.Scheduler.Supervisor do
 
   @doc false
   def start_link(name) do
-    opts = [
-      name: OddJob.Utils.scheduler_sup_name(name)
-    ]
-
-    DynamicSupervisor.start_link(__MODULE__, [], opts)
+    DynamicSupervisor.start_link(__MODULE__, [], name: Utils.scheduler_sup_name(name))
   end
 
   @impl DynamicSupervisor

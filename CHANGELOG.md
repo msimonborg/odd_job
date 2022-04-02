@@ -1,6 +1,6 @@
 # Changelog
 
-## v.0.4.1
+## v.0.4.2
 
 ### Improvements
 - Fix typos and make improvements in documentation.

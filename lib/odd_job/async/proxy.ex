@@ -46,7 +46,8 @@ defmodule OddJob.Async.Proxy do
 
   @impl GenServer
   def handle_call({:run, pool, job}, _from, state) do
-    Utils.queue_name(pool)
+    pool
+    |> Utils.queue_name()
     |> GenServer.cast({:perform, job})
 
     {:reply, job, %{state | job: job}}

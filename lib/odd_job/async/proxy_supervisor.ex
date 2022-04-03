@@ -15,7 +15,7 @@ defmodule OddJob.Async.ProxySupervisor do
   @spec start_child(atom) :: pid
   def start_child(pool) do
     pool
-    |> Utils.scheduler_sup_name()
+    |> Utils.proxy_sup_name()
     |> DynamicSupervisor.start_child(@child)
     |> Utils.extract_pid()
   end

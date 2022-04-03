@@ -126,8 +126,8 @@ defmodule OddJob do
       iex> children = [OddJob.child_spec(name: MyApp.Media)]
       [%{id: MyApp.Media, start: {OddJob.Pool, :start_link, [[name: MyApp.Media]]}, type: :supervisor}]
       iex> {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
-      iex> OddJob.workers(MyApp.Media) |> length()
-      5
+      iex> (MyApp.Media |> OddJob.workers() |> length()) == System.schedulers_online()
+      true
 
   Normally you would start an `OddJob` pool under a supervision tree with a child specification tuple
   and not call `child_spec/1` directly.

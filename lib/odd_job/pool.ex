@@ -90,17 +90,17 @@ defmodule OddJob.Pool do
   @doc false
   @spec start_link(options) :: Supervisor.on_start()
   def start_link(opts) when is_list(opts) do
-    {name, init_opts} = Keyword.pop!(opts, :name)
-    Supervisor.start_link(__MODULE__, [name, init_opts], name: name)
+    {name, _pool_opts} = start_arg = Keyword.pop!(opts, :name)
+    Supervisor.start_link(__MODULE__, start_arg, name: name)
   end
 
   @impl Supervisor
-  def init([name, _opts] = args) do
+  def init({name, _pool_opts} = start_arg) do
     children = [
       {OddJob.Async.ProxySupervisor, name},
       {OddJob.Scheduler.Supervisor, name},
       {OddJob.Queue, name},
-      {OddJob.Pool.Supervisor, args}
+      {OddJob.Pool.Supervisor, start_arg}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

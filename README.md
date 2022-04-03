@@ -42,7 +42,7 @@ The default pool can be customized in your config if you want to change the pool
 
 ```elixir
 config :odd_job,
-  pool_size: 10 # defaults to 5
+  pool_size: 10 # defaults to the number of schedulers online
 ```
 
 If you are processing jobs that have a high chance of failure, you may want to customize the `max_restarts` and `max_seconds`
@@ -51,7 +51,7 @@ default to the `Supervisor` defaults (`max_restarts: 3, max_seconds: 5`) and can
 
 ```elixir
 config :odd_job,
-  pool_size: 50,
+  pool_size: 10,
   max_restarts: 10,
   max_seconds: 2
 ```
@@ -70,12 +70,12 @@ can receive their own list of overrides:
 
 ```elixir
 config :odd_job,
-  pool_size: 50,
+  pool_size: 10,
   max_restarts: 5,
   extra_pools: [
     MyApp.Email, # MyApp.Email will use the defaults
     "MyApp.ExternalService": [ # the MyApp.ExternalService pool gets its own config
-      pool_size: 10,
+      pool_size: 5,
       max_restarts: 2
     ]
   ]
@@ -129,7 +129,7 @@ options with a `:name` key and a unique `name` value as an atom. You can supervi
 you want, as long as they have unique names.
 
 Any default configuration options listed in your `config.exs` will also apply to your own supervised
-pools. You can override the config for any pool by passing specifying the configuration in your
+pools. You can override the config for any pool by specifying the configuration in your
 child spec options:
 
 ```elixir
@@ -195,7 +195,7 @@ defmodule MyApp.Email do
   use OddJob.Pool
 
   def start_link(_init_arg) do
-    OddJob.start_link(__MODULE__)
+    OddJob.start_link(name: __MODULE__)
   end
 end
 ```

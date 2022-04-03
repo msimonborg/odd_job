@@ -22,9 +22,12 @@ defmodule OddJob.Pool.Worker do
           queue_name: OddJob.Queue.queue_name()
         }
 
+  @type job :: OddJob.Job.t()
+
   # <---- Client API ---->
 
   @doc false
+  @spec child_spec(keyword) :: Supervisor.child_spec()
   def child_spec(opts) do
     opts
     |> super()
@@ -32,18 +35,19 @@ defmodule OddJob.Pool.Worker do
   end
 
   @doc false
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
-  end
+  @spec start_link(keyword) :: GenServer.on_start()
+  def start_link(opts),
+    do: GenServer.start_link(__MODULE__, opts)
 
   @doc false
-  def perform(worker, job) do
-    GenServer.cast(worker, {:perform, job})
-  end
+  @spec perform(pid, job) :: :ok
+  def perform(worker, job),
+    do: GenServer.cast(worker, {:perform, job})
 
   # <---- Callbacks ---->
 
   @impl GenServer
+  @spec init(keyword) :: {:ok, t}
   def init(opts) do
     pool = Keyword.fetch!(opts, :pool)
 

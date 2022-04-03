@@ -21,11 +21,12 @@ defmodule OddJob.Scheduler.Supervisor do
   end
 
   @doc false
+  @spec start_link(atom) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(name),
     do: DynamicSupervisor.start_link(__MODULE__, [], name: Utils.scheduler_sup_name(name))
 
   @impl DynamicSupervisor
-  def init([]) do
-    DynamicSupervisor.init(strategy: :one_for_one)
-  end
+  @spec init(any) :: {:ok, DynamicSupervisor.sup_flags()}
+  def init(_),
+    do: DynamicSupervisor.init(strategy: :one_for_one)
 end

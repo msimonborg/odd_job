@@ -10,24 +10,25 @@ defmodule OddJob.Pool.Supervisor do
   alias OddJob.Utils
 
   @doc false
-  def start_link([name, _opts] = args),
-    do: Supervisor.start_link(__MODULE__, args, name: Utils.pool_supervisor_name(name))
+  @spec start_link({atom, keyword}) :: Supervisor.on_start()
+  def start_link({name, _pool_opts} = start_arg),
+    do: Supervisor.start_link(__MODULE__, start_arg, name: Utils.pool_supervisor_name(name))
 
   @impl Supervisor
-  def init([name, opts]) do
+  def init({name, pool_opts}) do
     config = Application.get_all_env(:odd_job)
-    default_pool_size = Keyword.get(config, :pool_size, 5)
-    {pool_size, opts} = Keyword.pop(opts, :pool_size, default_pool_size)
+    default_pool_size = Keyword.get(config, :pool_size, System.schedulers_online())
+    {pool_size, start_opts} = Keyword.pop(pool_opts, :pool_size, default_pool_size)
 
-    default_opts = [
+    default_start_opts = [
       strategy: :one_for_one,
       max_restarts: Keyword.get(config, :max_restarts, 3),
       max_seconds: Keyword.get(config, :max_seconds, 5)
     ]
 
     children = workers(name, pool_size)
-    opts = Keyword.merge(default_opts, opts)
-    Supervisor.init(children, opts)
+    start_opts = Keyword.merge(default_start_opts, start_opts)
+    Supervisor.init(children, start_opts)
   end
 
   defp workers(name, pool_size) do

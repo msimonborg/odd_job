@@ -1,17 +1,17 @@
 # Changelog
 
+## v.0.5.0
+
+### Changes
+- Changed default pool size to the number of BEAM schedulers (return value of
+`System.schedulers_online/0`).
+
 ## v.0.4.2
 
 ### Improvements
 - Fix typos and make improvements in documentation.
 - Fix an incorrect reference to `start_link/2` in the documentation generated with
 `Use OddJob.Pool`.
-
-### Improvements
-- Hibernate `OddJob.Queue` after a 10 second timeout to trigger garbage collection and reduce
-memory consumption
-- Fix typo in CHANGELOG.md
-- Fixes and additions to documentation.
 
 ## v.0.4.1
 

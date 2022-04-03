@@ -19,7 +19,7 @@ defmodule OddJob.Pool.Worker do
           id: non_neg_integer,
           pool: atom,
           queue_pid: pid,
-          queue_name: OddJob.Queue.queue_name()
+          queue_name: OddJob.Queue.queue()
         }
 
   @type job :: OddJob.Job.t()

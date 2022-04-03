@@ -308,7 +308,7 @@ defmodule OddJob do
   def async_perform(pool, function) when is_atom(pool) and is_function(function, 0) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
-      _ -> Async.perform(pool, function)
+      queue -> Async.perform(pool, queue, function)
     end
   end
 
@@ -339,7 +339,7 @@ defmodule OddJob do
       when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
     case pool |> queue_name() do
       {:error, :not_found} -> {:error, :not_found}
-      _ -> Async.perform_many(pool, collection, function)
+      queue -> Async.perform_many(pool, queue, collection, function)
     end
   end
 
@@ -367,9 +367,8 @@ defmodule OddJob do
   """
   @doc since: "0.1.0"
   @spec await(job, timeout) :: term
-  def await(job, timeout \\ 5000) when is_struct(job, Job) do
-    Async.await(job, timeout)
-  end
+  def await(job, timeout \\ 5000) when is_struct(job, Job),
+    do: Async.await(job, timeout)
 
   @doc """
   Awaits replies from multiple async jobs and returns them in a list.
@@ -398,9 +397,8 @@ defmodule OddJob do
   """
   @doc since: "0.2.0"
   @spec await_many([job], timeout) :: [term]
-  def await_many(jobs, timeout \\ 5000) when is_list(jobs) do
-    Async.await_many(jobs, timeout)
-  end
+  def await_many(jobs, timeout \\ 5000) when is_list(jobs),
+    do: Async.await_many(jobs, timeout)
 
   @doc """
   Sends a job to the `pool` after the given `timer` has elapsed.

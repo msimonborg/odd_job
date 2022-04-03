@@ -35,9 +35,7 @@ defmodule OddJob.Application do
   end
 
   defp extra_pools do
-    extra_pools = Application.get_env(:odd_job, :extra_pools, [])
-
-    for pool <- extra_pools do
+    for pool <- Application.get_env(:odd_job, :extra_pools, []) do
       start_arg =
         case pool do
           {name, opts} when is_atom(name) and is_list(opts) ->

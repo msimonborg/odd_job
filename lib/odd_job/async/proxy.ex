@@ -18,8 +18,6 @@ defmodule OddJob.Async.Proxy do
   @doc false
   use GenServer, restart: :temporary
 
-  alias OddJob.Utils
-
   defstruct [:worker_ref, :job]
 
   @type t :: %__MODULE__{
@@ -28,12 +26,26 @@ defmodule OddJob.Async.Proxy do
         }
 
   @type job :: OddJob.Job.t()
+  @type proxy :: pid
+
+  # <---- Client API ---->
 
   @doc false
   @spec start_link([]) :: :ignore | {:error, any} | {:ok, pid}
-  def start_link([]) do
-    GenServer.start_link(__MODULE__, [])
-  end
+  def start_link([]),
+    do: GenServer.start_link(__MODULE__, [])
+
+  @doc false
+  @spec link_and_monitor_caller(proxy) :: {:ok, reference}
+  def link_and_monitor_caller(proxy),
+    do: GenServer.call(proxy, :link_and_monitor_caller)
+
+  @doc false
+  @spec report_completed_job(proxy, job) :: :ok
+  def report_completed_job(proxy, job),
+    do: GenServer.call(proxy, {:job_complete, job})
+
+  # <---- Callbacks ---->
 
   @impl GenServer
   @spec init(any) :: {:ok, any}
@@ -42,24 +54,13 @@ defmodule OddJob.Async.Proxy do
   end
 
   @impl GenServer
-  def handle_cast({:job, job}, state), do: {:noreply, %{state | job: job}}
-
-  @impl GenServer
-  def handle_call({:run, pool, job}, _from, state) do
-    pool
-    |> Utils.queue_name()
-    |> GenServer.cast({:perform, job})
-
-    {:reply, job, %{state | job: job}}
-  end
-
-  def handle_call(:link_and_monitor, {from, _}, state) do
+  def handle_call(:link_and_monitor_caller, {from, _}, state) do
     Process.link(from)
     ref = Process.monitor(from)
-    {:reply, :ok, %{state | worker_ref: ref}}
+    {:reply, {:ok, ref}, %{state | worker_ref: ref}}
   end
 
-  def handle_call({:complete, job}, {from, _}, %{worker_ref: ref} = state) do
+  def handle_call({:job_complete, job}, {from, _}, %{worker_ref: ref} = state) do
     Process.unlink(from)
     Process.demonitor(ref, [:flush])
     Process.send(job.owner, {job.ref, job.results}, [])
@@ -67,8 +68,7 @@ defmodule OddJob.Async.Proxy do
   end
 
   @impl GenServer
-  def handle_info({:DOWN, ref, :process, _pid, reason}, %{worker_ref: worker_ref} = state)
-      when ref == worker_ref do
+  def handle_info({:DOWN, _, _, _, reason}, state) do
     {:stop, reason, state}
   end
 end

@@ -36,34 +36,6 @@ defmodule OddJob.Pool do
           | {:max_seconds, non_neg_integer}
 
   @doc false
-  @spec child_spec(options) :: child_spec
-  def child_spec(opts) when is_list(opts) do
-    [name: __MODULE__]
-    |> Keyword.merge(opts)
-    |> super()
-    |> Supervisor.child_spec(id: opts[:name])
-  end
-
-  @doc false
-  @spec start_link(options) :: Supervisor.on_start()
-  def start_link(opts) when is_list(opts) do
-    {name, init_opts} = Keyword.pop!(opts, :name)
-    Supervisor.start_link(__MODULE__, [name, init_opts], name: name)
-  end
-
-  @impl Supervisor
-  def init([name, _opts] = args) do
-    children = [
-      {OddJob.Async.ProxySupervisor, name},
-      {OddJob.Scheduler.Supervisor, name},
-      {OddJob.Queue, name},
-      {OddJob.Pool.Supervisor, args}
-    ]
-
-    Supervisor.init(children, strategy: :one_for_one)
-  end
-
-  @doc false
   @doc since: "0.4.0"
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
@@ -104,5 +76,33 @@ defmodule OddJob.Pool do
 
       defoverridable child_spec: 1, start_link: 1
     end
+  end
+
+  @doc false
+  @spec child_spec(options) :: child_spec
+  def child_spec(opts) when is_list(opts) do
+    [name: __MODULE__]
+    |> Keyword.merge(opts)
+    |> super()
+    |> Supervisor.child_spec(id: opts[:name])
+  end
+
+  @doc false
+  @spec start_link(options) :: Supervisor.on_start()
+  def start_link(opts) when is_list(opts) do
+    {name, init_opts} = Keyword.pop!(opts, :name)
+    Supervisor.start_link(__MODULE__, [name, init_opts], name: name)
+  end
+
+  @impl Supervisor
+  def init([name, _opts] = args) do
+    children = [
+      {OddJob.Async.ProxySupervisor, name},
+      {OddJob.Scheduler.Supervisor, name},
+      {OddJob.Queue, name},
+      {OddJob.Pool.Supervisor, args}
+    ]
+
+    Supervisor.init(children, strategy: :one_for_one)
   end
 end

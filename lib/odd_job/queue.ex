@@ -13,7 +13,7 @@ defmodule OddJob.Queue do
 
   import OddJob, only: [is_enumerable: 1]
 
-  alias OddJob.{Job, Utils}
+  alias OddJob.{Job, Pool.Worker, Utils}
 
   @spec __struct__ :: OddJob.Queue.t()
   defstruct [:pool, workers: [], assigned: [], jobs: []]
@@ -39,9 +39,10 @@ defmodule OddJob.Queue do
         }
 
   @type job :: Job.t()
-  @type queue_name :: {:via, Registry, {OddJob.Registry, {atom, :queue}}}
+  @type queue :: {:via, Registry, {OddJob.Registry, {atom, :queue}}}
+  @type worker :: pid
 
-  # <---- API ---->
+  # <---- Client API ---->
 
   @doc false
   def start_link(pool_name) do
@@ -49,14 +50,20 @@ defmodule OddJob.Queue do
   end
 
   @doc false
-  @spec perform(queue_name, function) :: :ok
-  def perform(queue, function) when is_function(function, 0) do
-    job = %Job{function: function, owner: self()}
-    GenServer.cast(queue, {:perform, job})
-  end
+  @spec perform(queue, function | job) :: :ok
+  def perform(queue, function) when is_function(function, 0),
+    do: perform(queue, %Job{function: function, owner: self()})
+
+  def perform(queue, job),
+    do: GenServer.cast(queue, {:perform, job})
 
   @doc false
-  @spec perform_many(queue_name, list | map, function) :: :ok
+  @spec perform_many(queue, [job]) :: :ok
+  def perform_many(queue, jobs) when is_list(jobs),
+    do: GenServer.cast(queue, {:perform_many, jobs})
+
+  @doc false
+  @spec perform_many(queue, list | map, function) :: :ok
   def perform_many(queue, collection, function)
       when is_enumerable(collection) and is_function(function, 1) do
     jobs =
@@ -64,18 +71,23 @@ defmodule OddJob.Queue do
         %Job{function: fn -> function.(member) end, owner: self()}
       end
 
-    GenServer.cast(queue, {:perform_many, jobs})
+    perform_many(queue, jobs)
   end
 
   @doc false
-  @spec state(queue_name) :: t
+  @spec state(queue) :: t
   def state(queue),
     do: GenServer.call(queue, :state)
 
   @doc false
-  @spec monitor_worker(queue_name, pid) :: :ok
+  @spec monitor_worker(queue, worker) :: :ok
   def monitor_worker(queue, worker) when is_pid(worker),
     do: GenServer.cast(queue, {:monitor, worker})
+
+  @doc false
+  @spec request_new_job(queue, worker) :: :ok
+  def request_new_job(queue, worker),
+    do: GenServer.cast(queue, {:request_new_job, worker})
 
   # <---- Callbacks ---->
 
@@ -92,25 +104,22 @@ defmodule OddJob.Queue do
     {:noreply, %{state | workers: workers ++ [pid]}}
   end
 
-  def handle_cast(
-        {:monitor, pid},
-        %{workers: workers, jobs: jobs, assigned: assigned} = state
-      ) do
-    Process.monitor(pid)
-    workers = workers ++ [pid]
-    assigned = assigned ++ [pid]
-    [job | rest] = jobs
-    GenServer.cast(pid, {:do_perform, job})
+  def handle_cast({:monitor, worker}, state) do
+    Process.monitor(worker)
+    workers = state.workers ++ [worker]
+    assigned = state.assigned ++ [worker]
+    [job | rest] = state.jobs
+    Worker.perform(worker, job)
     {:noreply, %{state | workers: workers, assigned: assigned, jobs: rest}}
   end
 
-  def handle_cast({:complete, worker}, %{assigned: assigned, jobs: []} = state) do
-    {:noreply, %{state | assigned: assigned -- [worker]}, _timeout = 10_000}
+  def handle_cast({:request_new_job, worker}, %{jobs: []} = state) do
+    {:noreply, %{state | assigned: state.assigned -- [worker]}, _timeout = 10_000}
   end
 
-  def handle_cast({:complete, worker}, %{jobs: jobs} = state) do
-    [new_job | rest] = jobs
-    GenServer.cast(worker, {:do_perform, new_job})
+  def handle_cast({:request_new_job, worker}, state) do
+    [job | rest] = state.jobs
+    Worker.perform(worker, job)
     {:noreply, %{state | jobs: rest}, _timeout = 10_000}
   end
 
@@ -124,23 +133,6 @@ defmodule OddJob.Queue do
     {:noreply, state}
   end
 
-  defp do_perform_many([], state), do: state
-
-  defp do_perform_many(
-         [job | rest] = new_jobs,
-         %{jobs: jobs, assigned: assigned, workers: workers} = state
-       ) do
-    available = available_workers(workers, assigned)
-
-    if available == [] do
-      %{state | jobs: jobs ++ new_jobs}
-    else
-      [worker | _rest] = available
-      GenServer.cast(worker, {:do_perform, job})
-      do_perform_many(rest, %{state | assigned: assigned ++ [worker]})
-    end
-  end
-
   defp do_perform(job, %{jobs: jobs, assigned: assigned, workers: workers} = state) do
     available = available_workers(workers, assigned)
 
@@ -148,30 +140,41 @@ defmodule OddJob.Queue do
       %{state | jobs: jobs ++ [job]}
     else
       [worker | _rest] = available
-      GenServer.cast(worker, {:do_perform, job})
+      Worker.perform(worker, job)
       %{state | assigned: assigned ++ [worker]}
     end
   end
 
-  defp available_workers(workers, assigned), do: workers -- assigned
+  defp do_perform_many([], state), do: state
 
-  @impl GenServer
-  def handle_call(:state, _from, state) do
-    {:reply, state, state}
+  defp do_perform_many([job | rest] = new_jobs, state) do
+    assigned = state.assigned
+    available = available_workers(state.workers, assigned)
+
+    if available == [] do
+      %{state | jobs: state.jobs ++ new_jobs}
+    else
+      [worker | _rest] = available
+      Worker.perform(worker, job)
+      do_perform_many(rest, %{state | assigned: assigned ++ [worker]})
+    end
   end
 
+  defp available_workers(workers, assigned),
+    do: workers -- assigned
+
   @impl GenServer
-  def handle_info(
-        {:DOWN, ref, :process, pid, _reason},
-        %{workers: workers, assigned: assigned} = state
-      ) do
+  def handle_call(:state, _from, state),
+    do: {:reply, state, state}
+
+  @impl GenServer
+  def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
     Process.demonitor(ref, [:flush])
-    workers = workers -- [pid]
-    assigned = assigned -- [pid]
+    workers = state.workers -- [pid]
+    assigned = state.assigned -- [pid]
     {:noreply, %{state | workers: workers, assigned: assigned}}
   end
 
-  def handle_info(:timeout, state) do
-    {:noreply, state, :hibernate}
-  end
+  def handle_info(:timeout, state),
+    do: {:noreply, state, :hibernate}
 end

@@ -11,7 +11,7 @@ defmodule OddJob.Pool.Worker do
 
   use GenServer
 
-  alias OddJob.Utils
+  alias OddJob.{Async.Proxy, Queue}
 
   defstruct [:id, :pool, :queue_pid, :queue_name]
 
@@ -21,6 +21,8 @@ defmodule OddJob.Pool.Worker do
           queue_pid: pid,
           queue_name: OddJob.Queue.queue_name()
         }
+
+  # <---- Client API ---->
 
   @doc false
   def child_spec(opts) do
@@ -34,51 +36,53 @@ defmodule OddJob.Pool.Worker do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @doc false
+  def perform(worker, job) do
+    GenServer.cast(worker, {:perform, job})
+  end
+
+  # <---- Callbacks ---->
+
   @impl GenServer
   def init(opts) do
     pool = Keyword.fetch!(opts, :pool)
 
     with queue_name = {:via, _, _} <- OddJob.queue_name(pool),
          queue_pid when is_pid(queue_pid) <- GenServer.whereis(queue_name) do
-      state = struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])
       Process.monitor(queue_pid)
-      OddJob.Queue.monitor_worker(queue_name, self())
-      {:ok, state}
+      Queue.monitor_worker(queue_name, self())
+      {:ok, struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])}
     else
       _ -> raise RuntimeError, message: "#{inspect(pool)} queue process cannot be found"
     end
   end
 
   @impl GenServer
-  def handle_cast({:do_perform, %{async: true, proxy: proxy} = job}, %{pool: pool} = state) do
-    GenServer.call(proxy, :link_and_monitor)
-    job = do_perform(pool, job)
-    GenServer.call(proxy, {:complete, job})
+  def handle_cast({:perform, %{async: true, proxy: proxy} = job}, state) do
+    {:ok, _} = Proxy.link_and_monitor_caller(proxy)
+    job = do_perform(state.queue_name, job)
+    Proxy.report_completed_job(proxy, job)
     {:noreply, state}
   end
 
-  def handle_cast({:do_perform, job}, %{pool: pool} = state) do
-    do_perform(pool, job)
+  def handle_cast({:perform, job}, state) do
+    do_perform(state.queue_name, job)
     {:noreply, state}
   end
 
-  defp do_perform(pool, job) do
+  defp do_perform(queue_name, job) do
     results = job.function.()
-
-    pool
-    |> Utils.queue_name()
-    |> GenServer.cast({:complete, self()})
-
+    Queue.request_new_job(queue_name, self())
     %{job | results: results}
   end
 
   @impl GenServer
-  def handle_info({:DOWN, _, _, pid, _}, %{queue_pid: queue_pid, queue_name: queue_name} = state)
-      when pid == queue_pid do
-    new_queue_pid = check_for_new_queue_process(queue_name)
-    Process.monitor(new_queue_pid)
-    OddJob.Queue.monitor_worker(queue_name, self())
-    {:noreply, %{state | queue_pid: new_queue_pid}}
+  def handle_info({:DOWN, _, _, pid, _}, %{queue_pid: q_pid} = state) when pid == q_pid do
+    q_name = state.queue_name
+    new_q_pid = check_for_new_queue_process(q_name)
+    Process.monitor(new_q_pid)
+    Queue.monitor_worker(q_name, self())
+    {:noreply, %{state | queue_pid: new_q_pid}}
   end
 
   defp check_for_new_queue_process(queue_name) do

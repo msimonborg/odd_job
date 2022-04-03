@@ -25,7 +25,7 @@ defmodule OddJob.Scheduler do
   @type timer :: non_neg_integer
   @type pool :: atom
 
-  # <---- API ---->
+  # <---- Client API ---->
 
   @doc false
   @spec perform(timer, pool, function) :: reference

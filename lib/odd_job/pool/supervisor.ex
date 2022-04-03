@@ -10,13 +10,8 @@ defmodule OddJob.Pool.Supervisor do
   alias OddJob.Utils
 
   @doc false
-  def start_link([name, _opts] = args) do
-    opts = [
-      name: Utils.pool_supervisor_name(name)
-    ]
-
-    Supervisor.start_link(__MODULE__, args, opts)
-  end
+  def start_link([name, _opts] = args),
+    do: Supervisor.start_link(__MODULE__, args, name: Utils.pool_supervisor_name(name))
 
   @impl Supervisor
   def init([name, opts]) do

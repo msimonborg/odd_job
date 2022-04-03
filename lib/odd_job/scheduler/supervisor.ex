@@ -21,9 +21,8 @@ defmodule OddJob.Scheduler.Supervisor do
   end
 
   @doc false
-  def start_link(name) do
-    DynamicSupervisor.start_link(__MODULE__, [], name: Utils.scheduler_sup_name(name))
-  end
+  def start_link(name),
+    do: DynamicSupervisor.start_link(__MODULE__, [], name: Utils.scheduler_sup_name(name))
 
   @impl DynamicSupervisor
   def init([]) do

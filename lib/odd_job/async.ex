@@ -2,41 +2,30 @@ defmodule OddJob.Async do
   @moduledoc false
   @moduledoc since: "0.1.0"
 
-  alias OddJob.{Async.ProxySupervisor, Job, Utils}
+  alias OddJob.{Async.ProxySupervisor, Job, Queue, Utils}
 
-  @type job :: OddJob.Job.t()
+  @type job :: Job.t()
+  @type queue :: Queue.queue()
 
   @doc since: "0.1.0"
-  @spec perform(atom, fun) :: job
-  def perform(pool, fun) when is_atom(pool) and is_function(fun) do
+  @spec perform(atom, queue, fun) :: job
+  def perform(pool, queue, fun) when is_atom(pool) and is_function(fun) do
     pool
     |> ProxySupervisor.start_child()
     |> Utils.link_and_monitor()
     |> build_job(fun)
-    |> run_proxy_with_job(pool)
+    |> tap(fn job -> Queue.perform(queue, job) end)
   end
 
-  @spec run_proxy_with_job(job, atom) :: job
-  defp run_proxy_with_job(job, pool) do
-    GenServer.call(job.proxy, {:run, pool, job})
-  end
-
-  @spec perform_many(atom, list | map, function) :: [job]
-  def perform_many(pool, collection, fun) do
-    jobs =
-      for item <- collection do
-        pool
-        |> ProxySupervisor.start_child()
-        |> Utils.link_and_monitor()
-        |> build_job(fn -> fun.(item) end)
-        |> send_job_to_proxy()
-      end
-
-    pool
-    |> Utils.queue_name()
-    |> GenServer.cast({:perform_many, jobs})
-
-    jobs
+  @spec perform_many(atom, queue, list | map, function) :: [job]
+  def perform_many(pool, queue, collection, fun) do
+    for item <- collection do
+      pool
+      |> ProxySupervisor.start_child()
+      |> Utils.link_and_monitor()
+      |> build_job(fn -> fun.(item) end)
+    end
+    |> tap(fn jobs -> Queue.perform_many(queue, jobs) end)
   end
 
   @spec build_job({pid, reference}, function) :: job
@@ -48,12 +37,6 @@ defmodule OddJob.Async do
       proxy: pid,
       async: true
     }
-  end
-
-  @spec send_job_to_proxy(job) :: job
-  defp send_job_to_proxy(job) do
-    GenServer.cast(job.proxy, {:job, job})
-    job
   end
 
   # The rest of this module, covering implementation of the `await` and `await_many` functions,

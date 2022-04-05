@@ -49,16 +49,15 @@ defmodule OddJob.Pool.Worker do
   @impl GenServer
   @spec init(keyword) :: {:ok, t}
   def init(opts) do
-    pool = Keyword.fetch!(opts, :pool)
+    queue_name =
+      opts
+      |> Keyword.fetch!(:pool)
+      |> OddJob.queue_name()
 
-    with queue_name = {:via, _, _} <- OddJob.queue_name(pool),
-         queue_pid when is_pid(queue_pid) <- GenServer.whereis(queue_name) do
-      Process.monitor(queue_pid)
-      Queue.monitor_worker(queue_name, self())
-      {:ok, struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])}
-    else
-      _ -> raise RuntimeError, message: "#{inspect(pool)} queue process cannot be found"
-    end
+    queue_pid = GenServer.whereis(queue_name)
+    Process.monitor(queue_pid)
+    Queue.monitor_worker(queue_name, self())
+    {:ok, struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])}
   end
 
   @impl GenServer

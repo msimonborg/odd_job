@@ -138,11 +138,10 @@ defmodule OddJob.SchedulerTest do
       assert result == :not_delivered
     end
 
-    test "raises an ArgumentError when a DateTime in the past is given" do
+    test "returns an error tuple when a DateTime in the past is given" do
       now = DateTime.utc_now()
       Process.sleep(1)
-      e = assert_raise(ArgumentError, fn -> perform_at(now, @pool, fn -> :fails end) end)
-      assert String.contains?(e.message, "invalid DateTime:")
+      assert perform_at(now, @pool, fn -> :fails end) == {:error, :invalid_datetime}
     end
   end
 
@@ -196,16 +195,10 @@ defmodule OddJob.SchedulerTest do
       assert results == Enum.map(1..5, fn _ -> :not_delivered end)
     end
 
-    test "raises an ArgumentError when a DateTime in the past is given" do
+    test "returns an error tuple when a DateTime in the past is given" do
       now = DateTime.utc_now()
       Process.sleep(1)
-
-      e =
-        assert_raise(ArgumentError, fn ->
-          perform_many_at(now, @pool, 1..5, fn _ -> :fails end)
-        end)
-
-      assert String.contains?(e.message, "invalid DateTime:")
+      assert perform_many_at(now, @pool, 1..5, fn _ -> :fails end) == {:error, :invalid_datetime}
     end
   end
 

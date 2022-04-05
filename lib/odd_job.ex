@@ -12,16 +12,17 @@ defmodule OddJob do
 
   alias OddJob.{Async, Job, Queue, Registry, Scheduler}
 
-  @type pool :: atom
-  @type not_found :: {:error, :not_found}
-  @type timer :: non_neg_integer
-  @type date_time :: DateTime.t()
-  @type job :: Job.t()
-  @type queue :: Queue.t()
-  @type name :: Registry.name()
-  @type options :: OddJob.Pool.options()
-  @type start_option :: OddJob.Pool.start_option()
   @type child_spec :: OddJob.Pool.child_spec()
+  @type date_time :: DateTime.t()
+  @type invalid_datetime :: {:error, :invalid_datetime}
+  @type job :: Job.t()
+  @type name :: Registry.name()
+  @type not_found :: {:error, :not_found}
+  @type options :: OddJob.Pool.options()
+  @type pool :: atom
+  @type queue :: Queue.t()
+  @type start_option :: OddJob.Pool.start_option()
+  @type timer :: non_neg_integer
 
   @doc false
   @doc since: "0.4.0"
@@ -231,10 +232,7 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec perform(pool, function) :: :ok | not_found
   def perform(pool, function) when is_atom(pool) and is_function(function, 0) do
-    case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      queue -> Queue.perform(queue, function)
-    end
+    with queue = {:via, _, _} <- queue_name(pool), do: Queue.perform(queue, function)
   end
 
   @doc """
@@ -268,9 +266,8 @@ defmodule OddJob do
   @spec perform_many(pool, list | map, function) :: :ok | not_found
   def perform_many(pool, collection, function)
       when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
-    case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      queue -> Queue.perform_many(queue, collection, function)
+    with queue = {:via, _, _} <- queue_name(pool) do
+      Queue.perform_many(queue, collection, function)
     end
   end
 
@@ -306,10 +303,7 @@ defmodule OddJob do
   @doc since: "0.1.0"
   @spec async_perform(pool, function) :: job | not_found
   def async_perform(pool, function) when is_atom(pool) and is_function(function, 0) do
-    case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      queue -> Async.perform(pool, queue, function)
-    end
+    with queue = {:via, _, _} <- queue_name(pool), do: Async.perform(pool, queue, function)
   end
 
   @doc """
@@ -337,9 +331,8 @@ defmodule OddJob do
   @spec async_perform_many(pool, list | map, function) :: [job] | not_found
   def async_perform_many(pool, collection, function)
       when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
-    case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      queue -> Async.perform_many(pool, queue, collection, function)
+    with queue = {:via, _, _} <- queue_name(pool) do
+      Async.perform_many(pool, queue, collection, function)
     end
   end
 
@@ -430,10 +423,7 @@ defmodule OddJob do
   @spec perform_after(timer, pool, function) :: reference | not_found
   def perform_after(timer, pool, fun)
       when is_atom(pool) and is_timer(timer) and is_function(fun, 0) do
-    case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      _ -> Scheduler.perform(timer, pool, fun)
-    end
+    with {:via, _, _} <- queue_name(pool), do: Scheduler.perform(timer, pool, fun)
   end
 
   @doc """
@@ -469,13 +459,12 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec perform_many_after(timer, pool, list | map, function) :: [job] | not_found
+  @spec perform_many_after(timer, pool, list | map, function) :: reference | not_found
   def perform_many_after(timer, pool, collection, function)
       when is_atom(pool) and is_timer(timer) and is_enumerable(collection) and
              is_function(function, 1) do
-    case pool |> queue_name() do
-      {:error, :not_found} -> {:error, :not_found}
-      _ -> Scheduler.perform_many(timer, pool, collection, function)
+    with {:via, _, _} <- queue_name(pool) do
+      Scheduler.perform_many(timer, pool, collection, function)
     end
   end
 
@@ -486,7 +475,8 @@ defmodule OddJob do
   under a separate supervised process, so if the caller crashes the job will still be performed.
   A timer reference is returned, which can be read with `Process.read_timer/1` or canceled with
   `OddJob.cancel_timer/1`. Returns `{:error, :not_found}` if the `pool` server does not exist at
-  the time this function is called.
+  the time this function is called, or `{:error, :invalid_datetime}` if the DateTime given
+  is already past.
 
   ## Examples
 
@@ -498,17 +488,12 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.2.0"
-  @spec perform_at(date_time, pool, function) :: reference | not_found
+  @spec perform_at(date_time, pool, function) :: reference | not_found | invalid_datetime
   def perform_at(date_time, pool, fun)
       when is_atom(pool) and is_struct(date_time, DateTime) and is_function(fun, 0) do
-    case pool |> queue_name() do
-      {:error, :not_found} ->
-        {:error, :not_found}
-
-      _ ->
-        date_time
-        |> validate_date_time!()
-        |> Scheduler.perform(pool, fun)
+    with {:via, _, _} <- queue_name(pool),
+         {:ok, timer} <- validate_date_time(date_time) do
+      Scheduler.perform(timer, pool, fun)
     end
   end
 
@@ -525,7 +510,8 @@ defmodule OddJob do
   single scheduler process for the whole batch.
 
   Returns `{:error, :not_found}` if the `pool` does not exist at the time the function
-  is called.
+  is called, or `{:error, :invalid_datetime}` if the DateTime given
+  is already past.
 
   ## Examples
 
@@ -548,31 +534,21 @@ defmodule OddJob do
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec perform_many_at(date_time, pool, list | map, function) :: reference | not_found
+  @spec perform_many_at(date_time, pool, list | map, function) ::
+          reference | not_found | invalid_datetime
   def perform_many_at(date_time, pool, collection, function)
       when is_struct(date_time, DateTime) and is_atom(pool) and is_enumerable(collection) and
              is_function(function, 1) do
-    case pool |> queue_name() do
-      {:error, :not_found} ->
-        {:error, :not_found}
-
-      _ ->
-        date_time
-        |> validate_date_time!()
-        |> Scheduler.perform_many(pool, collection, function)
+    with {:via, _, _} <- queue_name(pool),
+         {:ok, timer} <- validate_date_time(date_time) do
+      Scheduler.perform_many(timer, pool, collection, function)
     end
   end
 
-  defp validate_date_time!(date_time) do
-    now = DateTime.utc_now()
-
-    case DateTime.diff(date_time, now, :millisecond) do
-      diff when diff >= 0 ->
-        diff
-
-      _ ->
-        raise ArgumentError,
-          message: "invalid DateTime: must be after #{now}, got: #{date_time}"
+  defp validate_date_time(date_time) do
+    case DateTime.diff(date_time, DateTime.utc_now(), :millisecond) do
+      diff when diff >= 0 -> {:ok, diff}
+      _ -> {:error, :invalid_datetime}
     end
   end
 
@@ -603,9 +579,8 @@ defmodule OddJob do
   """
   @doc since: "0.2.0"
   @spec cancel_timer(reference) :: non_neg_integer | false
-  def cancel_timer(timer_ref) when is_reference(timer_ref) do
-    Scheduler.cancel_timer(timer_ref)
-  end
+  def cancel_timer(timer_ref) when is_reference(timer_ref),
+    do: Scheduler.cancel_timer(timer_ref)
 
   @doc """
   Returns a two element tuple `{pid, state}` with the `pid` of the job `queue` as the first element.

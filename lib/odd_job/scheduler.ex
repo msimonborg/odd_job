@@ -14,7 +14,7 @@ defmodule OddJob.Scheduler do
   @doc false
   use GenServer, restart: :temporary
 
-  import OddJob, only: [is_timer: 1]
+  import OddJob.Guards
 
   alias OddJob.Scheduler.Supervisor, as: SchedulerSup
 

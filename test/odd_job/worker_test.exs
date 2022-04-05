@@ -4,7 +4,7 @@ defmodule OddJob.WorkerTest do
   @pool :worker_test
 
   test "workers can survive a queue restart and check-in to the new queue" do
-    pid = OddJob.queue_name(@pool) |> GenServer.whereis()
+    pid = with {:ok, name} <- OddJob.queue_name(@pool), do: GenServer.whereis(name)
     assert is_pid(pid)
     assert {^pid, %{workers: workers}} = OddJob.queue(@pool)
     Process.exit(pid, :shutdown)

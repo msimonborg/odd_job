@@ -11,7 +11,7 @@ defmodule OddJob.Queue do
   @doc false
   use GenServer
 
-  import OddJob, only: [is_enumerable: 1]
+  import OddJob.Guards
 
   alias OddJob.{Job, Pool.Worker, Utils}
 

@@ -10,6 +10,8 @@ defmodule OddJob do
 
   @moduledoc since: "0.1.0"
 
+  import OddJob.Guards
+
   alias OddJob.{Async, Job, Queue, Registry, Scheduler}
 
   @type child_spec :: OddJob.Pool.child_spec()
@@ -23,14 +25,6 @@ defmodule OddJob do
   @type queue :: Queue.t()
   @type start_option :: OddJob.Pool.start_option()
   @type timer :: non_neg_integer
-
-  @doc false
-  @doc since: "0.4.0"
-  defguard is_enumerable(term) when is_list(term) or is_map(term)
-
-  @doc false
-  @doc since: "0.4.0"
-  defguard is_timer(timer) when is_integer(timer) and timer >= 0
 
   @doc """
   A macro for creating jobs with an expressive DSL.
@@ -220,19 +214,19 @@ defmodule OddJob do
   ## Examples
 
       iex> parent = self()
-      iex> :ok = OddJob.perform(OddJob.Pool, fn -> send(parent, :hello) end)
+      iex> :ok = perform(OddJob.Pool, fn -> send(parent, :hello) end)
       iex> receive do
       ...>   msg -> msg
       ...> end
       :hello
 
-      iex> OddJob.perform(:does_not_exist, fn -> "never called" end)
+      iex> perform(:does_not_exist, fn -> "never called" end)
       {:error, :not_found}
   """
   @doc since: "0.1.0"
   @spec perform(pool, function) :: :ok | not_found
   def perform(pool, function) when is_atom(pool) and is_function(function, 0) do
-    with queue = {:via, _, _} <- queue_name(pool), do: Queue.perform(queue, function)
+    with {:ok, queue} <- queue_name(pool), do: Queue.perform(queue, function)
   end
 
   @doc """
@@ -251,7 +245,7 @@ defmodule OddJob do
   ## Examples
 
       iex> caller = self()
-      iex> OddJob.perform_many(OddJob.Pool, 1..5, fn x -> send(caller, x) end)
+      iex> perform_many(OddJob.Pool, 1..5, & send(caller, &1))
       iex> for x <- 1..5 do
       ...>   receive do
       ...>     ^x -> x
@@ -259,14 +253,14 @@ defmodule OddJob do
       ...> end
       [1, 2, 3, 4, 5]
 
-      iex> OddJob.perform_many(:does_not_exist, ["never", "called"], fn x -> x end)
+      iex> perform_many(:does_not_exist, ["never", "called"], &(&1))
       {:error, :not_found}
   """
   @doc since: "0.4.0"
   @spec perform_many(pool, list | map, function) :: :ok | not_found
   def perform_many(pool, collection, function)
       when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
-    with queue = {:via, _, _} <- queue_name(pool) do
+    with {:ok, queue} <- queue_name(pool) do
       Queue.perform_many(queue, collection, function)
     end
   end
@@ -293,17 +287,17 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job = OddJob.async_perform(OddJob.Pool, fn -> :math.exp(100) end)
-      iex> OddJob.await(job)
+      iex> job = async_perform(OddJob.Pool, fn -> :math.exp(100) end)
+      iex> await(job)
       2.6881171418161356e43
 
-      iex> OddJob.async_perform(:does_not_exist, fn -> "never called" end)
+      iex> async_perform(:does_not_exist, fn -> "never called" end)
       {:error, :not_found}
   """
   @doc since: "0.1.0"
   @spec async_perform(pool, function) :: job | not_found
   def async_perform(pool, function) when is_atom(pool) and is_function(function, 0) do
-    with queue = {:via, _, _} <- queue_name(pool), do: Async.perform(pool, queue, function)
+    with {:ok, queue} <- queue_name(pool), do: Async.perform(pool, queue, function)
   end
 
   @doc """
@@ -320,18 +314,18 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> jobs = OddJob.async_perform_many(OddJob.Pool, 1..5, fn x -> x ** 2 end)
-      iex> OddJob.await_many(jobs)
+      iex> jobs = async_perform_many(OddJob.Pool, 1..5, &(&1 ** 2))
+      iex> await_many(jobs)
       [1, 4, 9, 16, 25]
 
-      iex> OddJob.async_perform_many(:does_not_exist, ["never", "called"], fn x -> x end)
+      iex> async_perform_many(:does_not_exist, ["never", "called"], &(&1))
       {:error, :not_found}
   """
   @doc since: "0.4.0"
   @spec async_perform_many(pool, list | map, function) :: [job] | not_found
   def async_perform_many(pool, collection, function)
       when is_atom(pool) and is_enumerable(collection) and is_function(function, 1) do
-    with queue = {:via, _, _} <- queue_name(pool) do
+    with {:ok, queue} <- queue_name(pool) do
       Async.perform_many(pool, queue, collection, function)
     end
   end
@@ -354,8 +348,8 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> OddJob.async_perform(OddJob.Pool, fn -> :math.log(2.6881171418161356e43) end)
-      ...> |> OddJob.await()
+      iex> async_perform(OddJob.Pool, fn -> :math.log(2.6881171418161356e43) end)
+      ...> |> await()
       100.0
   """
   @doc since: "0.1.0"
@@ -383,9 +377,9 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> job1 = OddJob.async_perform(OddJob.Pool, fn -> 2 ** 2 end)
-      iex> job2 = OddJob.async_perform(OddJob.Pool, fn -> 3 ** 2 end)
-      iex> [job1, job2] |> OddJob.await_many()
+      iex> job1 = async_perform(OddJob.Pool, fn -> 2 ** 2 end)
+      iex> job2 = async_perform(OddJob.Pool, fn -> 3 ** 2 end)
+      iex> [job1, job2] |> await_many()
       [4, 9]
   """
   @doc since: "0.2.0"
@@ -405,25 +399,25 @@ defmodule OddJob do
 
   ## Examples
 
-      timer_ref = OddJob.perform_after(5000, OddJob.Pool, fn -> deferred_job() end)
+      timer_ref = perform_after(5000, OddJob.Pool, &deferred_job/0)
       Process.read_timer(timer_ref)
       #=> 2836 # time remaining before job is sent to the pool
-      OddJob.cancel_timer(timer_ref)
+      cancel_timer(timer_ref)
       #=> 1175 # job has been cancelled
 
-      timer_ref = OddJob.perform_after(5000, OddJob.Pool, fn -> deferred_job() end)
+      timer_ref = perform_after(5000, OddJob.Pool, &deferred_job/0)
       Process.sleep(6000)
-      OddJob.cancel_timer(timer_ref)
+      cancel_timer(timer_ref)
       #=> false # too much time has passed to cancel the job
 
-      iex> OddJob.perform_after(5000, :does_not_exist, fn -> "never called" end)
+      iex> perform_after(5000, :does_not_exist, fn -> "never called" end)
       {:error, :not_found}
   """
   @doc since: "0.2.0"
   @spec perform_after(timer, pool, function) :: reference | not_found
   def perform_after(timer, pool, fun)
       when is_atom(pool) and is_timer(timer) and is_function(fun, 0) do
-    with {:via, _, _} <- queue_name(pool), do: Scheduler.perform(timer, pool, fun)
+    with {:ok, _} <- queue_name(pool), do: Scheduler.perform(timer, pool, fun)
   end
 
   @doc """
@@ -443,19 +437,19 @@ defmodule OddJob do
 
   ## Examples
 
-      timer_ref = OddJob.perform_many_after(5000, OddJob.Pool, 1..5, fn x -> x ** 2 end)
+      timer_ref = perform_many_after(5000, OddJob.Pool, 1..5, &(&1 ** 2))
       #=> #Reference<0.1431903625.286261254.39156>
       # fewer than 5 seconds pass
-      OddJob.cancel_timer(timer_ref)
+      cancel_timer(timer_ref)
       #=> 2554 # returns the time remaining. All jobs in the collection have been canceled
 
-      timer_ref = OddJob.perform_many_after(5000, OddJob.Pool, 1..5, fn x -> x **2 end)
+      timer_ref = perform_many_after(5000, OddJob.Pool, 1..5, &(&1 ** 2))
       #=> #Reference<0.1431903625.286261254.39178>
       # more than 5 seconds pass
-      OddJob.cancel_timer(timer_ref)
+      cancel_timer(timer_ref)
       #=> false # too much time has passed, all jobs have been queued
 
-      iex> OddJob.perform_many_after(5000, :does_not_exist, ["never", "called"], fn x -> x end)
+      iex> perform_many_after(5000, :does_not_exist, ["never", "called"], &(&1))
       {:error, :not_found}
   """
   @doc since: "0.4.0"
@@ -463,7 +457,7 @@ defmodule OddJob do
   def perform_many_after(timer, pool, collection, function)
       when is_atom(pool) and is_timer(timer) and is_enumerable(collection) and
              is_function(function, 1) do
-    with {:via, _, _} <- queue_name(pool) do
+    with {:ok, _} <- queue_name(pool) do
       Scheduler.perform_many(timer, pool, collection, function)
     end
   end
@@ -481,17 +475,17 @@ defmodule OddJob do
   ## Examples
 
       time = DateTime.utc_now() |> DateTime.add(600, :second)
-      OddJob.perform_at(time, OddJob.Pool, fn -> scheduled_job() end)
+      perform_at(time, OddJob.Pool, &schedule_job/0)
 
       iex> time = DateTime.utc_now() |> DateTime.add(600, :second)
-      iex> OddJob.perform_at(time, :does_not_exist, fn -> "never called" end)
+      iex> perform_at(time, :does_not_exist, fn -> "never called" end)
       {:error, :not_found}
   """
   @doc since: "0.2.0"
   @spec perform_at(date_time, pool, function) :: reference | not_found | invalid_datetime
   def perform_at(date_time, pool, fun)
       when is_atom(pool) and is_struct(date_time, DateTime) and is_function(fun, 0) do
-    with {:via, _, _} <- queue_name(pool),
+    with {:ok, _} <- queue_name(pool),
          {:ok, timer} <- validate_date_time(date_time) do
       Scheduler.perform(timer, pool, fun)
     end
@@ -516,21 +510,21 @@ defmodule OddJob do
   ## Examples
 
       time = DateTime.utc_now() |> DateTime.add(5, :second)
-      timer_ref = OddJob.perform_many_at(time, OddJob.Pool, 1..5, fn x -> x ** 2 end)
+      timer_ref = perform_many_at(time, OddJob.Pool, 1..5, &(&1 ** 2))
       #=> #Reference<0.1431903625.286261254.39156>
       # fewer than 5 seconds pass
-      OddJob.cancel_timer(timer_ref)
+      cancel_timer(timer_ref)
       #=> 2554 # returns the time remaining. All jobs in the collection have been canceled
 
       time = DateTime.utc_now() |> DateTime.add(5, :second)
-      timer_ref = OddJob.perform_many_at(time, OddJob.Pool, 1..5, fn x -> x **2 end)
+      timer_ref = perform_many_at(time, OddJob.Pool, 1..5, &(&1 ** 2))
       #=> #Reference<0.1431903625.286261254.39178>
       # more than 5 seconds pass
-      OddJob.cancel_timer(timer_ref)
+      cancel_timer(timer_ref)
       #=> false # too much time has passed, all jobs have been queued
 
       iex> time = DateTime.utc_now() |> DateTime.add(5, :second)
-      iex> OddJob.perform_many_at(time, :does_not_exist, ["never", "called"], fn x -> x end)
+      iex> perform_many_at(time, :does_not_exist, ["never", "called"], &(&1))
       {:error, :not_found}
   """
   @doc since: "0.4.0"
@@ -539,7 +533,7 @@ defmodule OddJob do
   def perform_many_at(date_time, pool, collection, function)
       when is_struct(date_time, DateTime) and is_atom(pool) and is_enumerable(collection) and
              is_function(function, 1) do
-    with {:via, _, _} <- queue_name(pool),
+    with {:ok, _} <- queue_name(pool),
          {:ok, timer} <- validate_date_time(date_time) do
       Scheduler.perform_many(timer, pool, collection, function)
     end
@@ -567,14 +561,14 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> ref = OddJob.perform_after(500, OddJob.Pool, fn -> :never end)
-      iex> time = OddJob.cancel_timer(ref)
+      iex> ref = perform_after(500, OddJob.Pool, fn -> :never end)
+      iex> time = cancel_timer(ref)
       iex> is_integer(time)
       true
 
-      iex> ref = OddJob.perform_after(10, OddJob.Pool, fn -> :never end)
+      iex> ref = perform_after(10, OddJob.Pool, fn -> :never end)
       iex> Process.sleep(11)
-      iex> OddJob.cancel_timer(ref)
+      iex> cancel_timer(ref)
       false
   """
   @doc since: "0.2.0"
@@ -601,13 +595,13 @@ defmodule OddJob do
 
   ## Examples
 
-      iex> {pid, %OddJob.Queue{pool: pool}} = OddJob.queue(OddJob.Pool)
+      iex> {pid, %OddJob.Queue{pool: pool}} = queue(OddJob.Pool)
       iex> is_pid(pid)
       true
       iex> pool
       OddJob.Pool
 
-      iex> OddJob.queue(:does_not_exist)
+      iex> queue(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.1.0"
@@ -626,28 +620,31 @@ defmodule OddJob do
   end
 
   @doc """
-  Returns the registered name in `:via` for the `queue` process. See the
-  `Registry` module for more information on `:via` process name registration.
+  Returns the registered name for the `queue` process.
+
+  The successful return value is `{:ok, name}`, where name is the registered
+  name in `:via`. See the `Registry` module for more information on `:via`
+  process name registration.
 
   Returns `{:error, :not_found}` if the `queue` server does not exist at
   the time this function is called.
 
   ## Examples
 
-      iex> OddJob.queue_name(OddJob.Pool)
+      iex> with {:ok, name} <- queue_name(OddJob.Pool), do: name
       {:via, Registry, {OddJob.Registry, {OddJob.Pool, :queue}}}
 
-      iex> OddJob.queue_name(:does_not_exist)
+      iex> queue_name(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec queue_name(pool) :: name | not_found
+  @spec queue_name(pool) :: {:ok, name} | not_found
   def queue_name(pool) when is_atom(pool) do
     name = OddJob.Utils.queue_name(pool)
 
     case GenServer.whereis(name) do
       nil -> {:error, :not_found}
-      _ -> name
+      _ -> {:ok, name}
     end
   end
 
@@ -663,44 +660,47 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.pool_supervisor(OddJob.Pool)
-      #=> #PID<0.239.0>
+      iex> is_pid pool_supervisor(OddJob.Pool)
+      true
 
-      iex> OddJob.pool_supervisor(:does_not_exist)
+      iex> pool_supervisor(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.4.0"
   @spec pool_supervisor(pool) :: pid | not_found
   def pool_supervisor(pool) when is_atom(pool) do
-    case pool |> pool_supervisor_name() |> GenServer.whereis() do
+    case pool |> OddJob.Utils.pool_supervisor_name() |> GenServer.whereis() do
       nil -> {:error, :not_found}
       pid -> pid
     end
   end
 
   @doc """
-  Returns the registered name in `:via` of the `OddJob.Pool.Supervisor` that
-  supervises the `pool`'s workers
+  Returns the registered name of the `OddJob.Pool.Supervisor` process for the given `pool`.
+
+  The `OddJob.Pool.Supervisor` supervises the `pool`'s workers.The successful return value
+  is `{:ok, name}`, where name is the registered name in `:via`. See the `Registry` module
+  for more information on `:via` process name registration.
 
   Returns `{:error, :not_found}` if the process does not exist at
   the time this function is called.
 
   ## Examples
 
-      iex> OddJob.pool_supervisor_name(OddJob.Pool)
+      iex> with {:ok, name} <- pool_supervisor_name(OddJob.Pool), do: name
       {:via, Registry, {OddJob.Registry, {OddJob.Pool, :pool_sup}}}
 
-      iex> OddJob.pool_supervisor_name(:does_not_exist)
+      iex> pool_supervisor_name(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.4.0"
-  @spec pool_supervisor_name(pool) :: name | not_found
+  @spec pool_supervisor_name(pool) :: {:ok, name} | not_found
   def pool_supervisor_name(pool) when is_atom(pool) do
     name = OddJob.Utils.pool_supervisor_name(pool)
 
     case GenServer.whereis(name) do
       nil -> {:error, :not_found}
-      _ -> name
+      _ -> {:ok, name}
     end
   end
 
@@ -715,10 +715,11 @@ defmodule OddJob do
 
   ## Examples
 
-      OddJob.workers(OddJob.Pool)
-      #=> [#PID<0.105.0>, #PID<0.106.0>, #PID<0.107.0>, #PID<0.108.0>, #PID<0.109.0>]
+      iex> workers = workers(OddJob.Pool)
+      iex> Enum.all?(workers, &is_pid/1)
+      true
 
-      iex> OddJob.workers(:does_not_exist)
+      iex> workers(:does_not_exist)
       {:error, :not_found}
   """
   @doc since: "0.1.0"

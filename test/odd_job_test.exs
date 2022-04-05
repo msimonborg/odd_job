@@ -1,7 +1,10 @@
 defmodule OddJobTest do
   use ExUnit.Case, async: false
   use ExUnitReceiver, as: :stash
+
   import OddJob
+  import OddJob.Guards
+
   doctest OddJob
 
   @pool :odd_job_test
@@ -153,7 +156,7 @@ defmodule OddJobTest do
   describe "pool_supervisor/1" do
     test "returns the pool supervisor's pid" do
       pid = pool_supervisor(@pool)
-      supervisor_name = pool_supervisor_name(@pool)
+      {:ok, supervisor_name} = pool_supervisor_name(@pool)
       assert is_pid(pid)
       assert pid == GenServer.whereis(supervisor_name)
     end

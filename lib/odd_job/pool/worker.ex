@@ -49,15 +49,13 @@ defmodule OddJob.Pool.Worker do
   @impl GenServer
   @spec init(keyword) :: {:ok, t}
   def init(opts) do
-    queue_name =
-      opts
-      |> Keyword.fetch!(:pool)
-      |> OddJob.queue_name()
-
-    queue_pid = GenServer.whereis(queue_name)
-    Process.monitor(queue_pid)
-    Queue.monitor_worker(queue_name, self())
-    {:ok, struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])}
+    with {:ok, pool} <- Keyword.fetch(opts, :pool),
+         {:ok, queue_name} <- OddJob.queue_name(pool) do
+      queue_pid = GenServer.whereis(queue_name)
+      Process.monitor(queue_pid)
+      Queue.monitor_worker(queue_name, self())
+      {:ok, struct(__MODULE__, opts ++ [queue_pid: queue_pid, queue_name: queue_name])}
+    end
   end
 
   @impl GenServer

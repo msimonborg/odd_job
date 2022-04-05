@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.0
+
+### Backwards incompatible changes
+- Change successful return type of `OddJob.pool_supervisor_name/1` and
+`OddJob.queue_name/1` to the tagged tuple `{:ok, name}`.
+
 ## v0.5.1
 
 ### Bug fixes
